@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ConnectionState } from '../lib/liveSession';
 import { Mic, Heart, Volume2, Sparkles } from 'lucide-react';
+import yuiStandingPortrait from '../assets/images/yui_standing_portrait_1785140884164.jpg';
 
 interface YuiAvatarProps {
   connectionState: ConnectionState;
@@ -74,7 +75,7 @@ export const YuiAvatar: React.FC<YuiAvatarProps> = ({
       >
         {/* Full Standing Vertical Portrait of Yui */}
         <img
-          src="/src/assets/images/yui_standing_portrait_1785140884164.jpg"
+          src={yuiStandingPortrait}
           alt="Yui SAO Full Standing Portrait"
           className={`h-full w-full object-cover object-top transition-transform duration-700 ${
             isSpeaking ? 'scale-[1.03] filter brightness-110 contrast-105' : 'scale-100'

@@ -13,11 +13,10 @@ import {
 import { getAllMemories, subscribeMemorySaved } from './lib/memoryStore';
 import { requestUserLocation, watchUserLocation } from './lib/locationService';
 import {
-  registerTanmayFaceFromCamera,
   verifyTanmayFaceFromCamera,
   hasSavedTanmayFace,
 } from './lib/faceRecognitionService';
-import { Mic, AlertCircle, Sparkles, Camera, ShieldCheck } from 'lucide-react';
+import { Mic, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -140,48 +139,6 @@ export default function App() {
     }
   };
 
-  // Manual Identity Testing Override
-  const handleToggleTanmayVerification = () => {
-    const newStatus: IdentityStatus = identity.isTanmay
-      ? { speakerName: 'Guest', isTanmay: false }
-      : { speakerName: 'Tanmay', isTanmay: true };
-    setIdentity(newStatus);
-  };
-
-  // Camera Face Registration: "Mera Chehra Yaad Kar Lo"
-  const handleRegisterFace = async () => {
-    setToastInfo({ type: 'saved', text: 'Capturing camera frame to remember Tanmay face...' });
-    const res = await registerTanmayFaceFromCamera();
-    if (res.success) {
-      setIdentity({ speakerName: 'Tanmay', isTanmay: true });
-      setToastInfo({
-        type: 'saved',
-        text: 'Maine aapka chehra save kar liya hai, ab अगली बार से पहचान जाऊँगी।',
-      });
-    } else {
-      setErrorBanner(res.details);
-    }
-  };
-
-  // Real-Time Camera Verification
-  const handleVerifyFace = async () => {
-    setToastInfo({ type: 'saved', text: 'Scanning live camera feed to verify face...' });
-    const res = await verifyTanmayFaceFromCamera();
-    if (res.matched) {
-      setIdentity({ speakerName: 'Tanmay', isTanmay: true });
-      setToastInfo({
-        type: 'saved',
-        text: `Welcome back, Tanmay Bhaiya! Main aa gayi hoon (${res.confidencePercent}% match)`,
-      });
-    } else {
-      setIdentity({ speakerName: 'Guest', isTanmay: false });
-      setToastInfo({
-        type: 'deleted',
-        text: `Aap Tanmay bhaiya nahi hain. (${res.confidencePercent}% similarity)`,
-      });
-    }
-  };
-
   return (
     <AincradBackground>
       {/* Absolute Zero-Clutter Fullscreen Canvas */}
@@ -253,29 +210,6 @@ export default function App() {
               </>
             )}
           </button>
-
-          {/* Facial Registration & Verification Toolbar */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-            <button
-              id="register-tanmay-face-btn"
-              onClick={handleRegisterFace}
-              className="flex items-center space-x-1.5 rounded-full border border-sky-400/40 bg-slate-900/80 px-4 py-2 text-xs font-medium text-sky-300 hover:border-cyan-300 hover:bg-slate-800/90 transition-all shadow-md active:scale-95"
-              title="Capture and save face to localStorage ('tanmay_verified_face')"
-            >
-              <Camera className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Mera Chehra Yaad Kar Lo</span>
-            </button>
-
-            <button
-              id="verify-tanmay-face-btn"
-              onClick={handleVerifyFace}
-              className="flex items-center space-x-1.5 rounded-full border border-emerald-400/40 bg-slate-900/80 px-4 py-2 text-xs font-medium text-emerald-300 hover:border-emerald-300 hover:bg-slate-800/90 transition-all shadow-md active:scale-95"
-              title="Verify face from camera against stored localStorage image"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Verify Tanmay Face</span>
-            </button>
-          </div>
         </div>
       </main>
 

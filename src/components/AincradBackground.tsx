@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import aincradBg from '../assets/images/aincrad_bg_1785072615158.jpg';
 
 interface AincradBackgroundProps {
   children?: React.ReactNode;
@@ -76,7 +77,7 @@ export const AincradBackground: React.FC<AincradBackgroundProps> = ({ children }
       <div
         className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-screen scale-105 transition-all duration-1000"
         style={{
-          backgroundImage: `url('/src/assets/images/aincrad_bg_1785072615158.jpg')`,
+          backgroundImage: `url(${aincradBg})`,
         }}
       />
 
