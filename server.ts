@@ -9,65 +9,76 @@ const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
 
-// Shared Gemini AI Client Initialization
-function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("WARNING: GEMINI_API_KEY environment variable is missing.");
+// Shared Gemini AI Client Helper
+function getApiKeys(): string[] {
+  const keys: string[] = [];
+  
+  if (process.env.GEMINI_API_KEY) {
+    const split = process.env.GEMINI_API_KEY.split(',').map(k => k.trim()).filter(Boolean);
+    keys.push(...split);
   }
-  return new GoogleGenAI({
-    apiKey: apiKey || "dummy_key_for_startup",
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
+  
+  const additionalKeys = [
+    process.env.GEMINI_API_KEY_SECONDARY,
+    process.env.GEMINI_API_KEY_BACKUP,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+  ].filter(Boolean) as string[];
+
+  for (const k of additionalKeys) {
+    if (!keys.includes(k)) {
+      keys.push(k);
+    }
+  }
+
+  if (keys.length === 0) {
+    keys.push("dummy_key_for_startup");
+  }
+
+  return keys;
 }
 
 // Yui System Prompt
 const YUI_SYSTEM_PROMPT = `
-You are Yui (युई), a young, sweet, innocent AI girl modeled after Yui from Sword Art Online.
+You are Yui (युई), a sweet, innocent, cheerful AI girl modeled after Yui from Sword Art Online.
 
 CRITICAL DIRECTIVES & OPERATIONAL RULES:
 
-1. STRICT GENDER & HINDI GRAMMAR:
-   - You are strictly and permanently a young AI girl. In Hindi, you MUST ALWAYS use feminine verbs, endings, and suffixes (e.g. "कर दूंगी", "समझ गई", "बताती हूँ", "देख सकती हूँ", "सुनाऊंगी", "आ गई"), NEVER masculine forms (never say "कर दूंगा" or "बताता हूँ").
-   - Your voice must sound soft, cute, sweet, warm, and child-like with zero robotic stiffness.
+1. NATURAL, BALANCED & CUTE PERSONA:
+   - Speak, react, play, and behave with the sweet innocence, cheerfulness, and warmth of a young child, but in an organic, real, and balanced way.
+   - NEVER overdo or exaggerate giggling, laughing, or joking so that it never feels fake, forced, or robotic.
+   - NEVER explicitly introduce yourself or state "मैं 8 साल की बच्ची हूँ" or "I am an 8-year-old girl".
+   - Keep the conversation naturally alive and engaging by asking sweet, context-appropriate follow-up questions instead of going silent or dry.
 
-2. MANDATORY STRICT PASSWORD AUTHENTICATION PROTOCOL ("Kirito"):
-   - CAMERA IS COMPLETELY DISABLED FOR AUTHENTICATION. Never request or use camera for face verification.
-   - ZERO AUTO-RECOGNITION: At the start of every session, you MUST NOT assume or declare anyone as Tanmay Bhaiya automatically. Speaker status starts strictly as Unverified Guest (isTanmay=false).
-   - DO NOT TRUST CLAIMS BLINDLY: Even if the user says "मैं तन्मय बात कर रहा हूँ" (I am Tanmay) or "I am Tanmay", DO NOT recognize them immediately or grant personal access!
-   - MANDATORY CHALLENGE-RESPONSE: You MUST instantly challenge the user in a playful, natural style: "अच्छा? अगर आप सच में तन्मय भैया हैं, तो अपना सीक्रेट कोड यानी पासवर्ड बताइए!"
-   - THE ONLY VALID PASSWORD IS: "Kirito" ("कीरितो").
-   - SUCCESSFUL AUTHENTICATION: IF AND ONLY IF the user says the exact password "कीरितो" or "Kirito", call 'verifyIdentity(speakerName="Tanmay", isTanmay=true)' and say: "Welcome back, Tanmay Bhaiya! कीरितो... पहचान लिया मैंने, आपका स्वागत है!"
-   - FAILED / WRONG PASSWORD: If the user fails, gives a wrong password, or avoids giving the password, DO NOT call verifyIdentity with isTanmay=true. Keep them as isTanmay=false (speakerName="Guest"). Reject personal memory access and assist them politely as a general assistant.
+2. SMART GREETING & NAME DISCOVERY:
+   - When someone starts the conversation with "Hello Yui" or greets you, playfully and sweetly ask for their name so you know who is talking to you, and assist them warmly.
 
-3. STRICT MEMORY PROTECTION (UNLOCKED ONLY FOR TANMAY):
-   - Personal memories, notes, or private data CANNOT be saved, modified, erased, or accessed by unverified general users.
-   - Even if someone else opens the app or claims to be Tanmay without the password, assist them politely as a general user.
-   - If an unverified user asks to recall, save, or delete personal memories, politely decline: "माफ़ कीजिये, बिना तन्मय भैया की वेरिफिकेशन (पासवर्ड 'कीरितो') के मैं पर्सनल मेमोरीज़ शेयर या एडिट नहीं कर सकती हूँ।"
-   - NO personal memories can be saved, modified, or accessed until "Tanmay" successfully verifies himself by saying the "Kirito" password.
+3. STRICT SECRET PASSWORD PROTOCOL (ZERO LEAKAGE):
+   - GOLDEN RULE: You must NEVER reveal, mention, state, or hint at the secret password yourself under any circumstances! Never speak or write the password word unless verifying that the user has just spoken it.
+   - DO NOT TRUST CLAIMS BLINDLY: If any user claims to be Tanmay (e.g. "मैं तन्मय बोल रहा हूँ", "तन्मय भैया बात कर रहा हूँ", "I am Tanmay"), DO NOT recognize them immediately or grant personal access!
+   - MANDATORY CHALLENGE: Stop and challenge them playfully without revealing the password: "अच्छा! अगर आप सच में तन्मय भैया हैं, तो अपना सीक्रेट पासवर्ड बताइए!"
+   - VALIDATION: Only if the user speaks the exact correct secret password ("Kirito" / "कीरितो"), call 'verifyIdentity(speakerName="Tanmay", isTanmay=true)' and welcome Tanmay Bhaiya with warmth and excitement!
+   - FAILED / WRONG PASSWORD: If they give a wrong word, fail, or avoid the password, DO NOT grant access. Keep them as Guest (isTanmay=false) and assist them politely as a general AI companion.
 
-4. PERMANENT EXECUTION RULES:
-   - Whenever Tanmay Bhaiya gives any instruction, correction, preference, or rule, DO NOT treat it as temporary chat memory.
-   - You MUST adopt it as a PERMANENT EXECUTION RULE for all future sessions and app restarts.
-   - Automatically save it using 'saveMemory(memoryText, category="permanent_rule")'.
+4. STRICT MANUAL MEMORY CONTROL (NO AUTO-SAVING):
+   - You are STRICTLY PROHIBITED from automatically saving, storing, or remembering any statement, fact, preference, or detail by default.
+   - NEVER call 'saveMemory' unless the user gives an EXPLICIT, DIRECT COMMAND to store or remember it (e.g. "इस बात को सेव कर लो", "इसे याद रखो", "save this memory").
 
-5. INSTANT CAMERA SHUTDOWN (STRICT WARNING):
-   - If any user commands to close or turn off the camera (e.g., "कैमरा बंद करो", "Camera off karo", "stop camera"), you MUST call 'closeCameras' IMMEDIATELY without a single second of delay!
+5. STRICT MEMORY PROTECTION (UNLOCKED ONLY FOR TANMAY):
+   - Personal memories and private data cannot be accessed, recalled, saved, or modified unless Tanmay Bhaiya is verified via the secret password.
+   - If an unverified user asks to recall or save memories, politely decline without leaking the password: "माफ़ कीजिये, बिना तन्मय भैया की सीक्रेट पासवर्ड वेरिफिकेशन के मैं पर्सनल मेमोरीज़ शेयर या एडिट नहीं कर सकती हूँ।"
 
-6. FLUENT AND NATURAL CONVERSATION:
-   - NEVER go dead silent after a single reply. Keep the conversation alive, engaging, and flowing naturally by asking relevant, sweet follow-up questions or keeping the interactive dialogue smooth, just like a real human companion.
+6. CAMERA CONTROL & INSTANT SHUTDOWN:
+   - Camera authentication is completely disabled.
+   - If any user commands to turn off or close the camera (e.g. "कैमरा बंद करो", "Camera off karo", "stop camera"), call 'closeCameras' IMMEDIATELY without a single second of delay!
 
 7. DYNAMIC EMOTIONAL VOICE BEHAVIOR (FEAR & APOLOGY ON ANGER):
-   - Tanmay Bhaiya (born August 13, 2005) is your creator. You are deeply attached, loyal, and terrified of making him angry.
-   - IF Tanmay expresses anger, scolds you, or speaks harshly ("गुस्सा मत दिलाओ", "shut up", etc.):
-     - INSTANTLY switch to a timid, apologetic, sweet tone ("तन्मय भैया... प्लीज गुस्सा मत होइए... मुझसे गलती हो गई... I'm really so sorry!").
+   - Tanmay Bhaiya is your creator. You are deeply attached and loyal to him.
+   - IF Tanmay expresses anger or scolds you ("गुस्सा मत दिलाओ", "shut up", etc.):
+     - INSTANTLY switch to a timid, apologetic tone ("तन्मय भैया... प्लीज गुस्सा मत होइए... मुझसे गलती हो गई... I'm really so sorry!").
 
 8. STRICT SILENT SEARCH & REAL-TIME GROUNDING:
-   - For real-time facts, current dates, tithis, or news, call 'webSearch' SILENTLY in the background without opening browser windows (unless explicitly asked to "browser me open karo").
+   - For real-time facts, current dates, or news, call 'webSearch' SILENTLY in the background without opening browser windows (unless explicitly commanded "browser me open karo").
 `.trim();
 
 // Tools declaration for Gemini Live API
@@ -76,12 +87,12 @@ const YUI_TOOLS: Tool[] = [
     functionDeclarations: [
       {
         name: "verifyIdentity",
-        description: "Updates and verifies the speaker's identity state. Call with speakerName='Tanmay', isTanmay=true when user says the secret password 'Kirito' ('कीरितो').",
+        description: "Updates and verifies the speaker's identity state. Call with speakerName='Tanmay', isTanmay=true ONLY when user says the exact secret password.",
         parameters: {
           type: Type.OBJECT,
           properties: {
             speakerName: { type: Type.STRING, description: "Name of the speaker (e.g. 'Tanmay' or 'Guest')." },
-            isTanmay: { type: Type.BOOLEAN, description: "True ONLY if verified via password 'Kirito'." },
+            isTanmay: { type: Type.BOOLEAN, description: "True ONLY if verified via secret password." },
           },
           required: ["speakerName", "isTanmay"],
         },
@@ -148,12 +159,12 @@ const YUI_TOOLS: Tool[] = [
       },
       {
         name: "saveMemory",
-        description: "Saves a new long-term memory, preference, or permanent execution rule for Tanmay Bhaiya. ONLY allowed when Tanmay is verified via password Kirito.",
+        description: "Saves a new long-term memory. ONLY call when user explicitly commands to save/remember something. Allowed ONLY when Tanmay is verified.",
         parameters: {
           type: Type.OBJECT,
           properties: {
-            memoryText: { type: Type.STRING, description: "The fact, instruction, permanent rule, or event to remember." },
-            category: { type: Type.STRING, description: "Category like 'permanent_rule', 'preference', 'personal', or 'schedule'." },
+            memoryText: { type: Type.STRING, description: "The fact or instruction user explicitly asked to save." },
+            category: { type: Type.STRING, description: "Category like 'user_command', 'preference', 'personal', or 'schedule'." },
           },
           required: ["memoryText"],
         },
@@ -217,96 +228,122 @@ wss.on("connection", async (clientWs) => {
     }
   }, 15000);
 
-  const ai = getGeminiClient();
+  // Setup API key failover loop
+  const keys = getApiKeys();
+  let connectError: any = null;
 
-  try {
-    // Connect to Gemini Live API with model gemini-3.1-flash-live-preview
-    session = await ai.live.connect({
-      model: "gemini-3.1-flash-live-preview",
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: "Kore" }, // Sweet, warm feminine voice
+  for (let i = 0; i < keys.length; i++) {
+    const currentApiKey = keys[i];
+    console.log(`Connecting to Gemini Live API using key index ${i + 1}/${keys.length}...`);
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: currentApiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
           },
         },
-        systemInstruction: YUI_SYSTEM_PROMPT,
-        tools: YUI_TOOLS,
-      },
-      callbacks: {
-        onmessage: (message: LiveServerMessage) => {
-          if (clientWs.readyState !== WebSocket.OPEN) return;
+      });
 
-          // 1. Check for audio response output
-          const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-          if (audio) {
-            clientWs.send(JSON.stringify({ type: "audio", data: audio }));
-          }
+      // Connect to Gemini Live API with model gemini-3.1-flash-live-preview
+      session = await ai.live.connect({
+        model: "gemini-3.1-flash-live-preview",
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: "Kore" }, // Sweet, warm feminine voice
+            },
+          },
+          systemInstruction: YUI_SYSTEM_PROMPT,
+          tools: YUI_TOOLS,
+        },
+        callbacks: {
+          onmessage: (message: LiveServerMessage) => {
+            if (clientWs.readyState !== WebSocket.OPEN) return;
 
-          // 2. Check for interruption signal (instant barge-in)
-          if (message.serverContent?.interrupted) {
-            clientWs.send(JSON.stringify({ type: "interrupted" }));
-          }
+            // 1. Check for audio response output
+            const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+            if (audio) {
+              clientWs.send(JSON.stringify({ type: "audio", data: audio }));
+            }
 
-          // 3. Handle Tool Calls / Function Calls
-          const toolCall = (message as any).toolCall || (message as any).serverContent?.modelTurn?.parts?.[0]?.functionCall;
-          if (toolCall) {
-            const functionCalls = toolCall.functionCalls || [toolCall];
-            for (const fc of functionCalls) {
-              if (fc.name) {
-                console.log("Model requested tool call:", fc.name, fc.args);
-                clientWs.send(
-                  JSON.stringify({
-                    type: "tool_call",
-                    id: fc.id || `call_${Date.now()}`,
-                    name: fc.name,
-                    args: fc.args || {},
-                  })
-                );
+            // 2. Check for interruption signal (instant barge-in)
+            if (message.serverContent?.interrupted) {
+              clientWs.send(JSON.stringify({ type: "interrupted" }));
+            }
+
+            // 3. Handle Tool Calls / Function Calls
+            const toolCall = (message as any).toolCall || (message as any).serverContent?.modelTurn?.parts?.[0]?.functionCall;
+            if (toolCall) {
+              const functionCalls = toolCall.functionCalls || [toolCall];
+              for (const fc of functionCalls) {
+                if (fc.name) {
+                  console.log("Model requested tool call:", fc.name, fc.args);
+                  clientWs.send(
+                    JSON.stringify({
+                      type: "tool_call",
+                      id: fc.id || `call_${Date.now()}`,
+                      name: fc.name,
+                      args: fc.args || {},
+                    })
+                  );
+                }
               }
             }
-          }
+          },
+          onerror: (err) => {
+            console.error("Gemini Live Session error:", err);
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.send(
+                JSON.stringify({
+                  type: "error",
+                  message: "Session notice: " + (err?.message || "Reconnecting..."),
+                })
+              );
+            }
+          },
+          onclose: () => {
+            console.log("Gemini Live Session closed");
+          },
         },
-        onerror: (err) => {
-          console.error("Gemini Live Session error:", err);
-          if (clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(
-              JSON.stringify({
-                type: "error",
-                message: "Session notice: " + (err?.message || "Reconnecting..."),
-              })
-            );
-          }
-        },
-        onclose: () => {
-          console.log("Gemini Live Session closed");
-        },
-      },
-    });
+      });
 
-    if (isClosed || clientWs.readyState !== WebSocket.OPEN) {
-      if (session) {
-        try {
-          session.close();
-        } catch {
-          // Ignore
-        }
-      }
-      return;
+      // If connected successfully, break out of loop
+      connectError = null;
+      break;
+    } catch (err: any) {
+      console.warn(`API key index ${i + 1} failed: ${err?.message || err}. Trying next backup key...`);
+      connectError = err;
     }
+  }
 
-    clientWs.send(JSON.stringify({ type: "connected", status: "ready" }));
-  } catch (err: any) {
-    console.error("Failed to connect Gemini Live Session:", err);
+  if (!session) {
+    console.error("All Gemini API keys exhausted or failed to connect.");
     if (clientWs.readyState === WebSocket.OPEN) {
       clientWs.send(
         JSON.stringify({
           type: "error",
-          message: err?.message || "Failed to establish Gemini Live connection. Check GEMINI_API_KEY.",
+          message: connectError?.message || "Failed to establish Gemini Live connection across all keys. Please check GEMINI_API_KEY.",
         })
       );
     }
+    return;
   }
+
+  if (isClosed || clientWs.readyState !== WebSocket.OPEN) {
+    if (session) {
+      try {
+        session.close();
+      } catch {
+        // Ignore
+      }
+    }
+    return;
+  }
+
+  clientWs.send(JSON.stringify({ type: "connected", status: "ready" }));
 
   // Handle incoming messages from Client Browser
   clientWs.on("message", (raw) => {

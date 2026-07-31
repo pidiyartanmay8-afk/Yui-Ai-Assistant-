@@ -9,13 +9,20 @@ interface MicPermissionGuideProps {
 
 export const MicPermissionGuide: React.FC<MicPermissionGuideProps> = ({ isOpen, onClose, onRetry }) => {
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<'success' | 'denied' | null>(null);
+  const [testResult, setTestResult] = useState<'success' | 'denied' | 'unsupported' | null>(null);
 
   if (!isOpen) return null;
 
   const handleRequestMicDirectly = async () => {
     setTesting(true);
     setTestResult(null);
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setTestResult('unsupported');
+      setTesting(false);
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
@@ -25,8 +32,8 @@ export const MicPermissionGuide: React.FC<MicPermissionGuideProps> = ({ isOpen, 
         onRetry();
         onClose();
       }, 1000);
-    } catch (err) {
-      console.error('Direct microphone test failed:', err);
+    } catch (err: any) {
+      console.warn('Direct microphone permission request denied:', err?.message || err);
       setTestResult('denied');
       setTesting(false);
     }
@@ -62,7 +69,14 @@ export const MicPermissionGuide: React.FC<MicPermissionGuideProps> = ({ isOpen, 
         {testResult === 'denied' && (
           <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-950/60 p-3 text-xs text-rose-300 flex items-center space-x-2">
             <AlertTriangle className="h-4 w-4 text-rose-400 flex-shrink-0" />
-            <span>Still blocked. Please follow the browser steps below to unblock.</span>
+            <span>Still blocked. Please allow microphone permissions in browser settings.</span>
+          </div>
+        )}
+
+        {testResult === 'unsupported' && (
+          <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-950/60 p-3 text-xs text-amber-300 flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+            <span>Microphone API is unavailable or blocked by iframe restrictions. Try opening the app in a new tab.</span>
           </div>
         )}
 
