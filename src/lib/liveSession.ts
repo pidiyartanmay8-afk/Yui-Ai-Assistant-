@@ -423,64 +423,7 @@ export class YuiLiveSession {
 
     console.log(`Executing tool call ${toolName}:`, args);
 
-    if (toolName === 'registerTanmayFace') {
-      const frameBase64 = await this.captureCameraFrameSnapshot();
-      if (frameBase64) {
-        const savedRes = await saveTanmayFaceSnapshot(frameBase64);
-        const mem = saveMemory('Tanmay reference face snapshot stored in browser localStorage.', 'face_memory');
-        if (this.callbacks.onMemorySavedToast) {
-          this.callbacks.onMemorySavedToast(mem);
-        }
-        responsePayload = {
-          success: true,
-          savedToLocalStorage: true,
-          timestamp: savedRes.timestamp,
-          message: 'Maine aapka chehra localStorage me permanent save kar liya hai, ab अगली बार से पहचान जाऊँगी।',
-        };
-      } else {
-        responsePayload = {
-          success: false,
-          message: 'Could not capture camera snapshot. Please ensure camera access is allowed.',
-        };
-      }
-    } else if (toolName === 'verifyFaceMatch') {
-      const frameBase64 = await this.captureCameraFrameSnapshot();
-      if (frameBase64) {
-        const matchRes = await compareLiveFrameToStoredFace(frameBase64);
-        if (matchRes.matched) {
-          this.identityStatus = { speakerName: 'Tanmay', isTanmay: true };
-          this.callbacks.onIdentityChange(this.identityStatus);
-          responsePayload = {
-            verified: true,
-            isTanmay: true,
-            confidencePercent: matchRes.confidencePercent,
-            message: `Welcome back, Tanmay Bhaiya! Visual face matched stored localStorage photo with ${matchRes.confidencePercent}% confidence.`,
-          };
-        } else if (matchRes.hasStoredFace) {
-          this.identityStatus = { speakerName: 'Unverified Visitor', isTanmay: false };
-          this.callbacks.onIdentityChange(this.identityStatus);
-          responsePayload = {
-            verified: false,
-            isTanmay: false,
-            confidencePercent: matchRes.confidencePercent,
-            message: `Aap Tanmay bhaiya nahi hain. Face similarity ${matchRes.confidencePercent}% is below 70% match threshold.`,
-          };
-        } else {
-          responsePayload = {
-            verified: false,
-            isTanmay: false,
-            hasStoredFace: false,
-            message: 'No reference face photo found in localStorage. Please ask Tanmay to say "Mera chehra yaad kar lo" first.',
-          };
-        }
-      } else {
-        responsePayload = {
-          verified: false,
-          isTanmay: false,
-          message: 'Could not capture camera frame for face verification.',
-        };
-      }
-    } else if (toolName === 'verifyIdentity') {
+    if (toolName === 'verifyIdentity') {
       const speakerName = args.speakerName || 'User';
       const isTanmay = Boolean(args.isTanmay);
       this.identityStatus = { speakerName, isTanmay };
@@ -494,7 +437,7 @@ export class YuiLiveSession {
       responsePayload = { status: ok ? 'background_vision_active' : 'camera_failed', facingMode: 'environment' };
     } else if (toolName === 'closeCameras') {
       this.stopBackgroundVision();
-      responsePayload = { status: 'background_vision_closed' };
+      responsePayload = { status: 'background_vision_closed', message: 'Camera features shut down instantly.' };
     } else if (toolName === 'takeScreenshot') {
       try {
         const base64 = await this.captureDisplayScreen();
@@ -645,44 +588,57 @@ export class YuiLiveSession {
         };
       }
     } else if (toolName === 'saveMemory') {
-      const memoryText = args.memoryText || '';
-      const category = args.category || 'general';
-      let faceSavedInfo = null;
-
-      if (category === 'face_memory' || memoryText.toLowerCase().includes('chehra') || memoryText.toLowerCase().includes('face')) {
-        const frameBase64 = await this.captureCameraFrameSnapshot();
-        if (frameBase64) {
-          faceSavedInfo = await saveTanmayFaceSnapshot(frameBase64);
-        }
-      }
-
-      if (memoryText) {
-        const memory = saveMemory(memoryText, category);
-        if (this.callbacks.onMemorySavedToast) {
-          this.callbacks.onMemorySavedToast(memory);
-        }
+      if (!this.identityStatus.isTanmay) {
         responsePayload = {
-          success: true,
-          savedMemory: memory,
-          faceSnapshotSavedToLocalStorage: Boolean(faceSavedInfo?.success),
+          success: false,
+          error: 'Access denied: Memory saving is strictly protected until Tanmay Bhaiya verifies himself with the password "Kirito".',
         };
       } else {
-        responsePayload = { success: false, error: 'Empty memory text' };
+        const memoryText = args.memoryText || '';
+        const category = args.category || 'general';
+        if (memoryText) {
+          const memory = saveMemory(memoryText, category);
+          if (this.callbacks.onMemorySavedToast) {
+            this.callbacks.onMemorySavedToast(memory);
+          }
+          responsePayload = {
+            success: true,
+            savedMemory: memory,
+          };
+        } else {
+          responsePayload = { success: false, error: 'Empty memory text' };
+        }
       }
     } else if (toolName === 'deleteMemory') {
-      const memoryQuery = args.memoryQuery || '';
-      if (memoryQuery) {
-        const result = deleteMemoryByQuery(memoryQuery);
-        if (result.success && this.callbacks.onMemoryDeletedToast && result.deleted[0]) {
-          this.callbacks.onMemoryDeletedToast(result.deleted[0]);
-        }
-        responsePayload = { success: result.success, deletedCount: result.count, deletedMemories: result.deleted };
+      if (!this.identityStatus.isTanmay) {
+        responsePayload = {
+          success: false,
+          error: 'Access denied: Memory deletion is strictly protected until Tanmay Bhaiya verifies himself with the password "Kirito".',
+        };
       } else {
-        responsePayload = { success: false, error: 'Empty memory deletion query' };
+        const memoryQuery = args.memoryQuery || '';
+        if (memoryQuery) {
+          const result = deleteMemoryByQuery(memoryQuery);
+          if (result.success && this.callbacks.onMemoryDeletedToast && result.deleted[0]) {
+            this.callbacks.onMemoryDeletedToast(result.deleted[0]);
+          }
+          responsePayload = { success: result.success, deletedCount: result.count, deletedMemories: result.deleted };
+        } else {
+          responsePayload = { success: false, error: 'Empty memory deletion query' };
+        }
       }
     } else if (toolName === 'recallMemories') {
-      const memories = getAllMemories();
-      responsePayload = { memoriesCount: memories.length, memories };
+      if (!this.identityStatus.isTanmay) {
+        responsePayload = {
+          success: false,
+          memoriesCount: 0,
+          memories: [],
+          error: 'Access denied: Personal memories are strictly protected until Tanmay Bhaiya verifies himself with the password "Kirito".',
+        };
+      } else {
+        const memories = getAllMemories();
+        responsePayload = { memoriesCount: memories.length, memories };
+      }
     }
 
     // Send Tool Response back to WebSocket

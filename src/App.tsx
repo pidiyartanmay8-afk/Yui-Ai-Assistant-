@@ -12,10 +12,6 @@ import {
 } from './lib/liveSession';
 import { getAllMemories, subscribeMemorySaved } from './lib/memoryStore';
 import { requestUserLocation, watchUserLocation } from './lib/locationService';
-import {
-  verifyTanmayFaceFromCamera,
-  hasSavedTanmayFace,
-} from './lib/faceRecognitionService';
 import { Mic, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -47,21 +43,6 @@ export default function App() {
     // Trigger browser Geolocation permission request upon app startup
     requestUserLocation();
     const stopWatcher = watchUserLocation();
-
-    // Automatic startup face verification against localStorage ('tanmay_verified_face')
-    if (hasSavedTanmayFace()) {
-      verifyTanmayFaceFromCamera().then((res) => {
-        if (res.matched) {
-          setIdentity({ speakerName: 'Tanmay', isTanmay: true });
-          setToastInfo({
-            type: 'saved',
-            text: `Welcome back, Tanmay Bhaiya! (${res.confidencePercent}% visual face match)`,
-          });
-        } else {
-          setIdentity({ speakerName: 'Guest', isTanmay: false });
-        }
-      });
-    }
 
     // Subscribe to memory saved events
     const unsubscribe = subscribeMemorySaved((newMem) => {
