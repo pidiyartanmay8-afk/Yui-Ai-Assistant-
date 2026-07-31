@@ -1,0 +1,12 @@
+{
+  "name": "Remix Yui AI Assistant",
+  "description": "Real-time, voice-to-voice AI assistant modeled after Yui from Sword Art Online with identity verification, voice camera controls, and long-term memory.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
