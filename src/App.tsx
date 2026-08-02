@@ -4,6 +4,7 @@ import { YuiAvatar } from './components/YuiAvatar';
 import { MemoryToast, ToastInfo } from './components/MemoryToast';
 import { MemoryModal } from './components/MemoryModal';
 import { MicPermissionGuide } from './components/MicPermissionGuide';
+import { MapViewModal, MapDataInfo } from './components/MapViewModal';
 import {
   YuiLiveSession,
   ConnectionState,
@@ -29,6 +30,7 @@ export default function App() {
   const [isMemoryModalOpen, setIsMemoryModalOpen] = useState<boolean>(false);
   const [isMicGuideOpen, setIsMicGuideOpen] = useState<boolean>(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [mapData, setMapData] = useState<MapDataInfo | null>(null);
 
   const sessionRef = useRef<YuiLiveSession | null>(null);
 
@@ -86,6 +88,9 @@ export default function App() {
       },
       onReturnToApp: () => {
         setToastInfo({ type: 'saved', text: 'Returned to Yui AI Primary Interface' });
+      },
+      onMapToggle: (data) => {
+        setMapData(data);
       },
     });
 
@@ -213,6 +218,12 @@ export default function App() {
         isOpen={isMicGuideOpen}
         onClose={() => setIsMicGuideOpen(false)}
         onRetry={handleToggleSession}
+      />
+
+      {/* Explicit Location & Navigation Interactive Map Modal */}
+      <MapViewModal
+        mapData={mapData}
+        onClose={() => setMapData(null)}
       />
     </AincradBackground>
   );

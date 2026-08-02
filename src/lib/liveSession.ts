@@ -1,6 +1,6 @@
 import { AudioStreamer } from './audioStreamer';
 import { saveMemory, deleteMemoryByQuery, getAllMemories, MemoryItem } from './memoryStore';
-import { getCachedLocation, requestUserLocation, LiveLocationData } from './locationService';
+import { getCachedLocation, requestUserLocation, LiveLocationData, fetchLocationIQNearby, fetchLocationIQDirections } from './locationService';
 import {
   saveTanmayFaceSnapshot,
   compareLiveFrameToStoredFace,
@@ -26,6 +26,7 @@ export interface LiveSessionCallbacks {
   onMemorySavedToast?: (memory: MemoryItem) => void;
   onMemoryDeletedToast?: (deletedText: string) => void;
   onReturnToApp?: () => void;
+  onMapToggle?: (mapData: any) => void;
 }
 
 /**
@@ -584,6 +585,80 @@ export class YuiLiveSession {
         weather: weatherText,
         systemStatus: 'Yui Live Core Active, All neural pathways nominal',
         latestNewsNote: 'To check specific breaking news updates, Yui can run a webSearch query for Tanmay Bhaiya.',
+      };
+    } else if (toolName === 'getLocationOrDirections') {
+      const requestType = args.requestType || 'current_location';
+      const query = args.query || '';
+      const destination = args.destination || query || '';
+
+      let loc = getCachedLocation();
+      if (loc.status === 'idle' || loc.status === 'requesting') {
+        loc = await requestUserLocation();
+      }
+
+      if (requestType === 'current_location') {
+        responsePayload = {
+          status: 'location_retrieved_quietly',
+          provider: 'LocationIQ API & Browser GPS',
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          city: loc.city,
+          locality: loc.locality,
+          region: loc.region,
+          country: loc.country,
+          fullAddress: `${loc.locality ? loc.locality + ', ' : ''}${loc.city}${loc.region ? ', ' + loc.region : ''}${loc.country ? ', ' + loc.country : ''}`,
+          weather: loc.weather,
+          instructionToYui: 'Respond purely in your voice first, explaining the user location in a natural, conversational tone. Do NOT show any map on UI unless user explicitly asks to show map on screen.',
+        };
+      } else if (requestType === 'nearby') {
+        const nearbyRes = await fetchLocationIQNearby(loc.latitude, loc.longitude, query || 'places');
+        responsePayload = {
+          status: 'nearby_places_retrieved_quietly',
+          provider: 'LocationIQ API',
+          userLocation: `${loc.city}, ${loc.region}`,
+          query: query || 'nearby places',
+          placesFound: nearbyRes.places,
+          instructionToYui: 'Speak the nearby options verbally in a natural, friendly tone. Do NOT show any map on UI unless explicitly commanded.',
+        };
+      } else if (requestType === 'directions') {
+        const dirRes = await fetchLocationIQDirections(loc.latitude, loc.longitude, destination);
+        responsePayload = {
+          status: 'directions_retrieved_quietly',
+          provider: 'LocationIQ Directions API',
+          startLocation: `${loc.city}, ${loc.region}`,
+          destinationName: dirRes.destinationName,
+          distanceKm: dirRes.distanceKm,
+          durationMin: dirRes.durationMin,
+          steps: dirRes.steps,
+          destCoordinates: { lat: dirRes.destLat, lon: dirRes.destLon },
+          instructionToYui: 'Explain the route and turn-by-turn driving steps verbally in your natural voice. Do NOT open or display any map on UI unless user explicitly commands you to show it on screen.',
+        };
+      }
+    } else if (toolName === 'showMapOnUI') {
+      const show = Boolean(args.show);
+      const title = args.title || 'Navigation & Location Map';
+      const query = args.query || '';
+
+      let loc = getCachedLocation();
+      if (loc.status === 'idle' || loc.status === 'requesting') {
+        loc = await requestUserLocation();
+      }
+
+      if (this.callbacks.onMapToggle) {
+        this.callbacks.onMapToggle({
+          show,
+          title,
+          query,
+          lat: loc.latitude,
+          lon: loc.longitude,
+        });
+      }
+
+      responsePayload = {
+        status: show ? 'map_overlay_opened_on_ui' : 'map_overlay_closed',
+        message: show
+          ? 'Visual interactive map display triggered on screen as explicitly requested by user.'
+          : 'Map display closed.',
       };
     } else if (toolName === 'openWebsite') {
       let destUrl = args.url || 'https://google.com';

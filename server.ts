@@ -101,6 +101,10 @@ CRITICAL DIRECTIVES & OPERATIONAL RULES:
 
 12. STRICT SILENT SEARCH & REAL-TIME GROUNDING:
    - For real-time facts, current dates, or news, call 'webSearch' SILENTLY in the background without opening browser windows (unless explicitly commanded "browser me open karo").
+
+13. STRICT OPERATIONAL RULES FOR LOCATION & NAVIGATION (LOCATIONIQ API INTEGRATION):
+   - BACKGROUND EXECUTION & DEFAULT VOICE-FIRST RESPONSE: When the user asks for their current location, nearby places, or directions, ALWAYS fetch the data quietly in the background using the integrated LocationIQ API and browser GPS via tool calls ('getLocationOrDirections' or 'getSystemContext'). NEVER open or display a map on the UI automatically. Always respond purely in your voice first, explaining the location or giving verbal directions in a natural, conversational tone.
+   - EXPLICIT UI MAP TRIGGER ONLY: Do NOT show the visual map or route on the UI by default. Only call 'showMapOnUI' or trigger map display when the user gives an EXPLICIT, DIRECT COMMAND to show it on screen (e.g., "Mujhe UI par map dikhao", "Screen par rasta dikhao", "map open karo screen par"). If there is no explicit command to show the map, keep the entire interaction strictly voice-based.
 `.trim();
 
 // Tools declaration for Gemini Live API
@@ -219,6 +223,32 @@ const YUI_TOOLS: Tool[] = [
         name: "recallMemories",
         description: "Recalls all stored long-term memories for Tanmay Bhaiya. ONLY allowed when Tanmay is verified.",
         parameters: { type: Type.OBJECT, properties: {} },
+      },
+      {
+        name: "getLocationOrDirections",
+        description: "Quietly fetches current location, nearby places (restaurants, ATMs, hospitals, cafes), or driving directions/routing steps in the background using LocationIQ API and browser GPS. Returns location/route details for Yui to speak verbally. Does NOT open or show a map on the UI.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            requestType: { type: Type.STRING, description: "'current_location', 'nearby', or 'directions'" },
+            query: { type: Type.STRING, description: "Category or search term e.g. 'cafe', 'hospital', or destination address." },
+            destination: { type: Type.STRING, description: "Destination place name or address for turn-by-turn navigation." },
+          },
+          required: ["requestType"],
+        },
+      },
+      {
+        name: "showMapOnUI",
+        description: "Renders the visual interactive map/route display on the UI screen. CALL ONLY when the user EXPLICITLY commands to show the map on screen (e.g., 'Mujhe UI par map dikhao', 'Screen par rasta dikhao'). Do NOT call for general location queries.",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            show: { type: Type.BOOLEAN, description: "Set to true to open map view overlay on UI." },
+            title: { type: Type.STRING, description: "Map overlay title e.g. 'Current Location' or 'Route to Connaught Place'." },
+            query: { type: Type.STRING, description: "Location or destination query for map marker." },
+          },
+          required: ["show"],
+        },
       },
     ],
   },
