@@ -429,6 +429,51 @@ export class YuiLiveSession {
       this.identityStatus = { speakerName, isTanmay };
       this.callbacks.onIdentityChange(this.identityStatus);
       responsePayload = { verified: true, identity: this.identityStatus };
+    } else if (toolName === 'setTimerOrAlarm') {
+      const durationSec = Number(args.durationSeconds) || 60;
+      const label = args.label || (args.isAlarm ? 'Alarm' : 'Timer');
+      const isAlarm = Boolean(args.isAlarm);
+
+      // Execute timer silently in background
+      setTimeout(() => {
+        try {
+          // Play background audio chime
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtx) {
+            const ctx = new AudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3); // A5
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.8);
+          }
+        } catch (err) {
+          console.warn('Silent timer chime alert sound error:', err);
+        }
+
+        if (this.callbacks.onMemorySavedToast) {
+          this.callbacks.onMemorySavedToast({
+            id: `timer_${Date.now()}`,
+            text: `⏰ Silent ${isAlarm ? 'Alarm' : 'Timer'} finished (${label})!`,
+            category: 'timer',
+            createdAt: Date.now(),
+          });
+        }
+      }, Math.max(1, durationSec) * 1000);
+
+      responsePayload = {
+        status: 'timer_scheduled_silently',
+        durationSeconds: durationSec,
+        label,
+        isAlarm,
+        message: `Background ${isAlarm ? 'alarm' : 'timer'} set silently for ${durationSec} seconds. No UI buttons or visual elements will be displayed.`,
+      };
     } else if (toolName === 'openFrontCamera') {
       const ok = await this.startBackgroundVision('front');
       responsePayload = { status: ok ? 'background_vision_active' : 'camera_failed', facingMode: 'user' };
