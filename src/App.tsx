@@ -5,11 +5,13 @@ import { MemoryToast, ToastInfo } from './components/MemoryToast';
 import { MemoryModal } from './components/MemoryModal';
 import { MicPermissionGuide } from './components/MicPermissionGuide';
 import { MapViewModal, MapDataInfo } from './components/MapViewModal';
+import { YouTubePlayerModal } from './components/YouTubePlayerModal';
 import {
   YuiLiveSession,
   ConnectionState,
   IdentityStatus,
   CameraFacing,
+  YouTubeMediaInfo,
 } from './lib/liveSession';
 import { getAllMemories, subscribeMemorySaved } from './lib/memoryStore';
 import { requestUserLocation, watchUserLocation } from './lib/locationService';
@@ -31,6 +33,7 @@ export default function App() {
   const [isMicGuideOpen, setIsMicGuideOpen] = useState<boolean>(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [mapData, setMapData] = useState<MapDataInfo | null>(null);
+  const [ytMedia, setYtMedia] = useState<YouTubeMediaInfo | null>(null);
 
   const sessionRef = useRef<YuiLiveSession | null>(null);
 
@@ -91,6 +94,9 @@ export default function App() {
       },
       onMapToggle: (data) => {
         setMapData(data);
+      },
+      onYouTubeToggle: (data) => {
+        setYtMedia(data);
       },
     });
 
@@ -250,6 +256,12 @@ export default function App() {
             );
           }
         }}
+      />
+
+      {/* Embedded YouTube Media Player Overlay */}
+      <YouTubePlayerModal
+        mediaInfo={ytMedia}
+        onClose={() => setYtMedia(null)}
       />
     </AincradBackground>
   );

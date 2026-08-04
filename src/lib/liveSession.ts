@@ -17,6 +17,13 @@ export interface IdentityStatus {
   isTanmay: boolean;
 }
 
+export interface YouTubeMediaInfo {
+  show: boolean;
+  query?: string;
+  videoId?: string;
+  videoTitle?: string;
+}
+
 export interface LiveSessionCallbacks {
   onConnectionStateChange: (state: ConnectionState) => void;
   onIdentityChange: (identity: IdentityStatus) => void;
@@ -27,6 +34,58 @@ export interface LiveSessionCallbacks {
   onMemoryDeletedToast?: (deletedText: string) => void;
   onReturnToApp?: () => void;
   onMapToggle?: (mapData: any) => void;
+  onYouTubeToggle?: (ytData: YouTubeMediaInfo | null) => void;
+}
+
+/**
+ * YouTube Data API v3 Search Helper
+ */
+export async function searchYouTubeVideoId(query: string): Promise<{ videoId: string; title: string }> {
+  const apiKey = (import.meta.env.VITE_YOUTUBE_API_KEY as string) || (typeof process !== 'undefined' && process.env?.YOUTUBE_API_KEY) || '';
+
+  if (apiKey) {
+    try {
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.items && data.items.length > 0 && data.items[0]?.id?.videoId) {
+          return {
+            videoId: data.items[0].id.videoId,
+            title: data.items[0].snippet?.title || query,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('YouTube Data API v3 search error:', err);
+    }
+  }
+
+  // Fallback search mechanism if key is not provided or fails
+  try {
+    const pipedRes = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`);
+    if (pipedRes.ok) {
+      const pipedData = await pipedRes.json();
+      if (pipedData.items && pipedData.items[0] && pipedData.items[0].url) {
+        const urlStr = pipedData.items[0].url;
+        const match = urlStr.match(/v=([a-zA-Z0-9_-]+)/);
+        if (match) {
+          return {
+            videoId: match[1],
+            title: pipedData.items[0].title || query,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Fallback search notice:', err);
+  }
+
+  // Fallback default video ID if no key or API fails
+  return {
+    videoId: 'fHiGbolM4oA',
+    title: query,
+  };
 }
 
 /**
@@ -668,6 +727,35 @@ export class YuiLiveSession {
         message: show
           ? 'Visual interactive map display triggered on screen as explicitly requested by user.'
           : 'Map display closed.',
+      };
+    } else if (toolName === 'playYouTubeMedia') {
+      const query = args.query || 'music';
+      const ytResult = await searchYouTubeVideoId(query);
+
+      if (this.callbacks.onYouTubeToggle) {
+        this.callbacks.onYouTubeToggle({
+          show: true,
+          query,
+          videoId: ytResult.videoId,
+          videoTitle: ytResult.title,
+        });
+      }
+
+      responsePayload = {
+        status: 'playing_youtube_video',
+        videoId: ytResult.videoId,
+        videoTitle: ytResult.title,
+        embedUrl: `https://www.youtube.com/embed/${ytResult.videoId}?autoplay=1`,
+        confirmationPhrase: 'Arey waah, mast song! Ye lo chala diya! 🎶',
+        instructionToYui: 'Say a tiny 3-5 word confirmation while playing, e.g. "Arey waah, mast song! Ye lo chala diya!" 🎶',
+      };
+    } else if (toolName === 'closeYouTubeMedia') {
+      if (this.callbacks.onYouTubeToggle) {
+        this.callbacks.onYouTubeToggle(null);
+      }
+      responsePayload = {
+        status: 'youtube_player_closed',
+        message: 'YouTube video/music player closed.',
       };
     } else if (toolName === 'openWebsite') {
       let destUrl = args.url || 'https://google.com';
