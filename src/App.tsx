@@ -15,7 +15,7 @@ import {
 } from './lib/liveSession';
 import { getAllMemories, subscribeMemorySaved } from './lib/memoryStore';
 import { requestUserLocation, watchUserLocation } from './lib/locationService';
-import { Mic, AlertCircle, Sparkles } from 'lucide-react';
+import { Mic, AlertCircle, Sparkles, ExternalLink } from 'lucide-react';
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -137,19 +137,28 @@ export default function App() {
       <main className="relative flex flex-1 flex-col items-center justify-center p-2 sm:p-4 max-w-4xl mx-auto w-full z-10 min-h-screen">
         {/* Error / Notice Banner (only shown if an error occurs) */}
         {errorBanner && (
-          <div className="absolute top-4 left-4 right-4 z-50 mx-auto max-w-md flex items-center justify-between rounded-2xl border border-rose-500/40 bg-slate-950/90 p-3 text-xs text-rose-200 backdrop-blur-md shadow-2xl">
+          <div className="absolute top-4 left-4 right-4 z-50 mx-auto max-w-lg flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-rose-500/40 bg-slate-950/95 p-3 text-xs text-rose-200 backdrop-blur-md shadow-2xl">
             <div className="flex items-center space-x-2">
               <AlertCircle className="h-4 w-4 text-rose-400 flex-shrink-0" />
               <span>{errorBanner}</span>
             </div>
-            <div className="flex items-center space-x-2">
-              {(errorBanner.includes('Permission') || errorBanner.includes('Microphone')) && (
-                <button
-                  onClick={() => setIsMicGuideOpen(true)}
-                  className="rounded bg-rose-500/30 px-2.5 py-1 text-[11px] font-bold text-rose-200 hover:bg-rose-500/50 transition-colors"
-                >
-                  How to Fix
-                </button>
+            <div className="flex items-center space-x-2 ml-auto">
+              {(errorBanner.includes('Permission') || errorBanner.includes('Microphone') || errorBanner.includes('Blocked')) && (
+                <>
+                  <button
+                    onClick={() => window.open(window.location.href, '_blank', 'noopener,noreferrer')}
+                    className="flex items-center space-x-1 rounded bg-sky-500/30 px-2 py-1 text-[11px] font-bold text-sky-200 hover:bg-sky-500/50 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span>New Tab</span>
+                  </button>
+                  <button
+                    onClick={() => setIsMicGuideOpen(true)}
+                    className="rounded bg-rose-500/30 px-2.5 py-1 text-[11px] font-bold text-rose-200 hover:bg-rose-500/50 transition-colors"
+                  >
+                    How to Fix
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setErrorBanner(null)}

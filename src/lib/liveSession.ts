@@ -731,10 +731,16 @@ export class YuiLiveSession {
     } else if (toolName === 'playYouTubeMedia') {
       const query = args.query || 'music';
       const ytResult = await searchYouTubeVideoId(query);
+      const watchUrl = `https://www.youtube.com/watch?v=${ytResult.videoId}`;
+
+      // Open directly in browser tab/Chrome
+      if (typeof window !== 'undefined') {
+        window.open(watchUrl, '_blank', 'noopener,noreferrer');
+      }
 
       if (this.callbacks.onYouTubeToggle) {
         this.callbacks.onYouTubeToggle({
-          show: true,
+          show: false,
           query,
           videoId: ytResult.videoId,
           videoTitle: ytResult.title,
@@ -742,12 +748,12 @@ export class YuiLiveSession {
       }
 
       responsePayload = {
-        status: 'playing_youtube_video',
+        status: 'opened_youtube_video_in_chrome',
         videoId: ytResult.videoId,
         videoTitle: ytResult.title,
-        embedUrl: `https://www.youtube.com/embed/${ytResult.videoId}?autoplay=1`,
-        confirmationPhrase: 'Arey waah, mast song! Ye lo chala diya! 🎶',
-        instructionToYui: 'Say a tiny 3-5 word confirmation while playing, e.g. "Arey waah, mast song! Ye lo chala diya!" 🎶',
+        watchUrl,
+        confirmationPhrase: 'Arey waah, mast song! Ek second mai Chrome par chalati hoon...',
+        instructionToYui: 'Say a quick filler, e.g. "Arey waah, mast song! Ek second mai Chrome par chalati hoon..."',
       };
     } else if (toolName === 'closeYouTubeMedia') {
       if (this.callbacks.onYouTubeToggle) {

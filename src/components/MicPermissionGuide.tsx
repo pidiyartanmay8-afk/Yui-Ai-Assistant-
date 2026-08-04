@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Lock, RefreshCw, AlertTriangle, X } from 'lucide-react';
+import { Mic, MicOff, Lock, RefreshCw, AlertTriangle, X, ExternalLink } from 'lucide-react';
 
 interface MicPermissionGuideProps {
   isOpen: boolean;
@@ -12,6 +12,10 @@ export const MicPermissionGuide: React.FC<MicPermissionGuideProps> = ({ isOpen, 
   const [testResult, setTestResult] = useState<'success' | 'denied' | 'unsupported' | null>(null);
 
   if (!isOpen) return null;
+
+  const handleOpenNewTab = () => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+  };
 
   const handleRequestMicDirectly = async () => {
     setTesting(true);
@@ -95,22 +99,32 @@ export const MicPermissionGuide: React.FC<MicPermissionGuideProps> = ({ isOpen, 
           </ol>
         </div>
 
-        <div className="mt-5 flex items-center justify-end space-x-3">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
           <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+            onClick={handleOpenNewTab}
+            className="flex items-center space-x-1.5 rounded-xl border border-sky-400/40 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-sky-200 hover:bg-slate-700/80 transition-all"
           >
-            Cancel
+            <ExternalLink className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Open in New Tab</span>
           </button>
 
-          <button
-            onClick={handleRequestMicDirectly}
-            disabled={testing}
-            className="flex items-center space-x-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-lg hover:brightness-110 active:scale-95 transition-all"
-          >
-            <RefreshCw className={`h-4 w-4 ${testing ? 'animate-spin' : ''}`} />
-            <span>{testing ? 'Checking Mic...' : 'Grant & Retry Mic'}</span>
-          </button>
+          <div className="flex items-center space-x-2 ml-auto">
+            <button
+              onClick={onClose}
+              className="px-3 py-2 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+
+            <button
+              onClick={handleRequestMicDirectly}
+              disabled={testing}
+              className="flex items-center space-x-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg hover:brightness-110 active:scale-95 transition-all"
+            >
+              <RefreshCw className={`h-4 w-4 ${testing ? 'animate-spin' : ''}`} />
+              <span>{testing ? 'Checking Mic...' : 'Grant & Retry Mic'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

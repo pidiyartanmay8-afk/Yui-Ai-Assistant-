@@ -47,7 +47,18 @@ export class AudioStreamer {
             sampleRate: 16000,
           },
         });
-      } catch (constraintErr) {
+      } catch (constraintErr: any) {
+        const isPermissionError =
+          constraintErr?.name === 'NotAllowedError' ||
+          constraintErr?.name === 'PermissionDeniedError' ||
+          constraintErr?.message?.toLowerCase().includes('permission') ||
+          constraintErr?.message?.toLowerCase().includes('denied') ||
+          constraintErr?.message?.toLowerCase().includes('not allowed');
+
+        if (isPermissionError) {
+          throw constraintErr;
+        }
+
         console.warn('Fallback: Initializing default getUserMedia without 16kHz constraint', constraintErr);
         // Fallback attempt with standard audio request
         this.mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -106,6 +117,7 @@ export class AudioStreamer {
       this.initOutputAudioContext();
       this.startVolumeMonitoring();
     } catch (err) {
+      this.stopRecording();
       console.error('Error starting audio recording:', err);
       throw err;
     }
