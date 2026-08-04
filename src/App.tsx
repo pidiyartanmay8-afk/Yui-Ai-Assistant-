@@ -224,6 +224,32 @@ export default function App() {
       <MapViewModal
         mapData={mapData}
         onClose={() => setMapData(null)}
+        onSelectPlaceContext={(place) => {
+          setToastInfo({
+            type: 'saved',
+            text: `Selected Location: ${place.name}`,
+          });
+          if (sessionRef.current) {
+            sessionRef.current.sendRealtimeTextPrompt(
+              `[LOCATION CONTEXT SYNC]: User searched/selected place '${place.name}', Address: '${place.address}', Coordinates: (${place.lat}, ${place.lon}) on the map dashboard.`
+            );
+          }
+        }}
+        onSyncUIContext={(uiContext) => {
+          if (sessionRef.current) {
+            sessionRef.current.sendRealtimeTextPrompt(
+              `[REALTIME MAP UI VISION SYNC]: Yui, the user's active Map Dashboard state is currently - Center Coordinates: (${uiContext.lat.toFixed(
+                5
+              )}, ${uiContext.lon.toFixed(5)}), Zoom Level: ${uiContext.zoom}, Active Search Query: '${
+                uiContext.query || 'None'
+              }', Active Selected Place: '${uiContext.selectedPlaceName || 'None'}' (${
+                uiContext.selectedAddress || 'None'
+              }), Rendered Visible Map Markers: [${
+                uiContext.renderedMarkers.length > 0 ? uiContext.renderedMarkers.slice(0, 8).join(', ') : 'Primary GPS Location'
+              }]. You can see and read all these details on the map screen in real-time.`
+            );
+          }
+        }}
       />
     </AincradBackground>
   );

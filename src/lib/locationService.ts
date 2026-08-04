@@ -149,6 +149,116 @@ async function fetchLocationDetails(lat: number, lon: number): Promise<{
 }
 
 /**
+ * Fetch autocomplete search predictions from LocationIQ API
+ */
+export async function fetchLocationIQAutocomplete(
+  query: string,
+  lat?: number | null,
+  lon?: number | null
+): Promise<Array<{ display_name: string; name: string; address: any; lat: number; lon: number; type: string }>> {
+  if (!query || query.trim().length < 2) return [];
+  try {
+    let url = `https://us1.locationiq.com/v1/autocomplete?key=${LOCATIONIQ_KEY}&q=${encodeURIComponent(
+      query.trim()
+    )}&limit=6&format=json`;
+
+    if (lat && lon) {
+      url += `&viewbox=${lon - 0.25},${lat + 0.25},${lon + 0.25},${lat - 0.25}&bounded=0`;
+    }
+
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      return data.map((item: any) => ({
+        display_name: item.display_name,
+        name: item.display_name.split(',')[0] || item.display_place || 'Location',
+        address: item.address || {},
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        type: item.type || 'place',
+      }));
+    }
+  } catch (err) {
+    console.warn('LocationIQ autocomplete error:', err);
+  }
+  return [];
+}
+
+/**
+ * Reverse geocode coordinates to human-readable address via LocationIQ
+ */
+export async function fetchLocationIQReverse(
+  lat: number,
+  lon: number
+): Promise<{ display_name: string; city: string; state: string; country: string; road: string; raw: any }> {
+  try {
+    const res = await fetch(
+      `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_KEY}&lat=${lat}&lon=${lon}&format=json`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const addr = data.address || {};
+      return {
+        display_name: data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+        city: addr.city || addr.town || addr.village || addr.county || 'Local Area',
+        state: addr.state || addr.region || '',
+        country: addr.country || '',
+        road: addr.road || addr.suburb || addr.neighbourhood || '',
+        raw: data,
+      };
+    }
+  } catch (err) {
+    console.warn('LocationIQ reverse lookup error:', err);
+  }
+  return {
+    display_name: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+    city: 'Local Area',
+    state: '',
+    country: '',
+    road: '',
+    raw: null,
+  };
+}
+
+/**
+ * Fetch nearby POIs (hospitals, ATMs, restaurants, temples, fuel stations) around lat/lon
+ */
+export async function fetchLocationIQNearbyPOIs(
+  lat: number,
+  lon: number,
+  tag: string = 'amenity'
+): Promise<Array<{ name: string; address: string; lat: number; lon: number; type: string }>> {
+  try {
+    let url = `https://us1.locationiq.com/v1/nearby?key=${LOCATIONIQ_KEY}&lat=${lat}&lon=${lon}&tag=${encodeURIComponent(
+      tag
+    )}&radius=3000&format=json`;
+
+    let res = await fetch(url);
+    if (!res.ok) {
+      // Fallback search endpoint with query tag
+      url = `https://us1.locationiq.com/v1/search?key=${LOCATIONIQ_KEY}&q=${encodeURIComponent(
+        tag
+      )}&format=json&limit=8&viewbox=${lon - 0.1},${lat + 0.1},${lon + 0.1},${lat - 0.1}&bounded=0`;
+      res = await fetch(url);
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.map((item: any) => ({
+        name: item.display_name ? item.display_name.split(',')[0] : 'POI Item',
+        address: item.display_name || 'Nearby Address',
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        type: item.type || tag,
+      }));
+    }
+  } catch (err) {
+    console.warn('LocationIQ nearby POI lookup error:', err);
+  }
+  return [];
+}
+
+/**
  * Fetch nearby places using LocationIQ Nearby / Search API quietly in background
  */
 export async function fetchLocationIQNearby(
@@ -305,24 +415,73 @@ export async function fetchLocationIQDirections(
 }
 
 /**
- * Trigger explicit Browser Geolocation Request
+ * Fetch IP-based location fallback via LocationIQ IPGeo API
+ */
+export async function fetchLocationIQIPGeo(): Promise<{ lat: number; lon: number; city: string; region: string; country: string } | null> {
+  try {
+    const res = await fetch(`https://us1.locationiq.com/v1/ipgeo.php?key=${LOCATIONIQ_KEY}`);
+    if (res.ok) {
+      const data = await res.json();
+      const lat = parseFloat(data.latitude || data.lat);
+      const lon = parseFloat(data.longitude || data.lon);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        return {
+          lat,
+          lon,
+          city: data.city || data.cityName || 'Local Area',
+          region: data.region || data.regionName || data.state || '',
+          country: data.country_name || data.country || '',
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('LocationIQ IP Geo lookup error:', err);
+  }
+  return null;
+}
+
+/**
+ * Trigger explicit Browser Geolocation Request with LocationIQ IP Fallback
  */
 export async function requestUserLocation(): Promise<LiveLocationData> {
-  if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    cachedLocation = {
-      ...cachedLocation,
-      status: 'error',
-      errorMessage: 'Geolocation is not supported by this browser.',
-    };
-    notifyListeners();
-    return cachedLocation;
-  }
-
   cachedLocation = {
     ...cachedLocation,
     status: 'requesting',
   };
   notifyListeners();
+
+  const handleIpFallback = async (fallbackErrorMsg?: string): Promise<LiveLocationData> => {
+    const ipGeo = await fetchLocationIQIPGeo();
+    if (ipGeo) {
+      const details = await fetchLocationDetails(ipGeo.lat, ipGeo.lon);
+      cachedLocation = {
+        status: 'granted',
+        latitude: ipGeo.lat,
+        longitude: ipGeo.lon,
+        accuracy: 5000,
+        city: details.city || ipGeo.city,
+        region: details.region || ipGeo.region,
+        country: details.country || ipGeo.country,
+        locality: details.locality,
+        weather: details.weather,
+        lastUpdated: new Date().toLocaleTimeString(),
+      };
+      notifyListeners();
+      return cachedLocation;
+    }
+
+    cachedLocation = {
+      ...cachedLocation,
+      status: 'error',
+      errorMessage: fallbackErrorMsg || 'Unable to retrieve location via browser or IP fallback.',
+    };
+    notifyListeners();
+    return cachedLocation;
+  };
+
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    return handleIpFallback('Geolocation API not supported by browser.');
+  }
 
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
@@ -349,24 +508,19 @@ export async function requestUserLocation(): Promise<LiveLocationData> {
         notifyListeners();
         resolve(cachedLocation);
       },
-      (error) => {
+      async (error) => {
         let errorMsg = 'Unable to retrieve location.';
         if (error.code === error.PERMISSION_DENIED) {
-          errorMsg = 'Location permission denied by user.';
+          errorMsg = 'Location permission denied by browser/iframe.';
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          errorMsg = 'Location information unavailable.';
+          errorMsg = 'Location position unavailable.';
         } else if (error.code === error.TIMEOUT) {
           errorMsg = 'Location request timed out.';
         }
 
-        cachedLocation = {
-          ...cachedLocation,
-          status: error.code === error.PERMISSION_DENIED ? 'denied' : 'error',
-          errorMessage: errorMsg,
-        };
-
-        notifyListeners();
-        resolve(cachedLocation);
+        console.warn(`Geolocation error (${error.code}): ${error.message}. Attempting LocationIQ IPGeo fallback...`);
+        const fallbackData = await handleIpFallback(errorMsg);
+        resolve(fallbackData);
       },
       {
         enableHighAccuracy: true,

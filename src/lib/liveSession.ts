@@ -240,6 +240,15 @@ export class YuiLiveSession {
   }
 
   /**
+   * Send text prompt or location context update to Gemini Live API
+   */
+  public sendRealtimeTextPrompt(text: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'text', text }));
+    }
+  }
+
+  /**
    * Start offscreen background camera vision stream
    */
   public async startBackgroundVision(facing: 'front' | 'back'): Promise<boolean> {

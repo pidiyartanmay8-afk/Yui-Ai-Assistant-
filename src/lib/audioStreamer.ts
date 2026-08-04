@@ -36,20 +36,38 @@ export class AudioStreamer {
     this.onInputPCM = onInputPCM;
 
     try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 16000,
-        },
-      });
+      // Primary attempt with preferred audio constraints
+      try {
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: 16000,
+          },
+        });
+      } catch (constraintErr) {
+        console.warn('Fallback: Initializing default getUserMedia without 16kHz constraint', constraintErr);
+        // Fallback attempt with standard audio request
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      }
 
-      // Standard AudioContext for mic input at 16kHz
-      this.inputAudioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
-        sampleRate: 16000,
-      });
+      // Try creating AudioContext with 16kHz target sample rate
+      try {
+        this.inputAudioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
+          sampleRate: 16000,
+        });
+      } catch (ctxErr) {
+        console.warn('Fallback: AudioContext without sampleRate constraint', ctxErr);
+        this.inputAudioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      }
 
       if (this.inputAudioCtx.state === 'suspended') {
         await this.inputAudioCtx.resume();
@@ -59,19 +77,27 @@ export class AudioStreamer {
       this.micAnalyser = this.inputAudioCtx.createAnalyser();
       this.micAnalyser.fftSize = 256;
 
-      // ScriptProcessorNode for raw PCM extraction (buffer size 2048 gives ~128ms chunks at 16kHz)
-      this.scriptProcessor = this.inputAudioCtx.createScriptProcessor(2048, 1, 1);
+      // ScriptProcessorNode for raw PCM extraction
+      const bufferSize = 2048;
+      this.scriptProcessor = this.inputAudioCtx.createScriptProcessor(bufferSize, 1, 1);
 
       source.connect(this.micAnalyser);
       this.micAnalyser.connect(this.scriptProcessor);
       this.scriptProcessor.connect(this.inputAudioCtx.destination);
 
+      const nativeSampleRate = this.inputAudioCtx.sampleRate;
+
       this.scriptProcessor.onaudioprocess = (e) => {
         if (!this.onInputPCM) return;
         const inputData = e.inputBuffer.getChannelData(0);
         
+        let pcmData = inputData;
+        if (nativeSampleRate !== 16000) {
+          pcmData = this.downsampleBuffer(inputData, nativeSampleRate, 16000);
+        }
+
         // Convert Float32Array (-1.0 to 1.0) to 16-bit PCM ArrayBuffer
-        const pcm16 = this.floatTo16BitPCM(inputData);
+        const pcm16 = this.floatTo16BitPCM(pcmData);
         const base64 = this.arrayBufferToBase64(pcm16);
         this.onInputPCM(base64);
       };
@@ -217,6 +243,30 @@ export class AudioStreamer {
   }
 
   // --- Helper Conversion Methods ---
+
+  private downsampleBuffer(buffer: Float32Array, sampleRate: number, outSampleRate: number): Float32Array {
+    if (outSampleRate === sampleRate || outSampleRate > sampleRate) {
+      return buffer;
+    }
+    const sampleRateRatio = sampleRate / outSampleRate;
+    const newLength = Math.round(buffer.length / sampleRateRatio);
+    const result = new Float32Array(newLength);
+    let offsetResult = 0;
+    let offsetBuffer = 0;
+    while (offsetResult < result.length) {
+      const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+      let accum = 0;
+      let count = 0;
+      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+        accum += buffer[i];
+        count++;
+      }
+      result[offsetResult] = count > 0 ? accum / count : 0;
+      offsetResult++;
+      offsetBuffer = nextOffsetBuffer;
+    }
+    return result;
+  }
 
   private floatTo16BitPCM(input: Float32Array): ArrayBuffer {
     const buffer = new ArrayBuffer(input.length * 2);
