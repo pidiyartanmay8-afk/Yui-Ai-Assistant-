@@ -468,22 +468,36 @@ app.post("/api/check-code", async (req, res) => {
       realContent = fs.readFileSync(secondaryPath, "utf-8");
     }
 
-    // Check if GITHUB_TOKEN is available if local read failed
-    if (!realContent) {
-      if (process.env.GITHUB_TOKEN) {
-        try {
-          const ghRes = await fetch(`https://api.github.com/repos/tanmay-official/yui-ai-assistant/contents/${target}`, {
-            headers: {
-              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-              Accept: "application/vnd.github.v3.raw"
-            }
-          });
-          if (ghRes.ok) {
-            realContent = await ghRes.text();
+    // Check if GITHUB_TOKEN is available if local read failed or to fetch latest from GitHub
+    if (!realContent && process.env.GITHUB_TOKEN) {
+      try {
+        const ghRes = await fetch(`https://api.github.com/repos/tanmay-official/yui-ai-assistant/contents/${target}`, {
+          headers: {
+            "Authorization": `Bearer ${process.env.GITHUB_TOKEN}`,
+            "Accept": "application/vnd.github.v3+json"
           }
-        } catch (e) {
-          console.warn("GitHub fetch notice:", e);
+        });
+
+        if (ghRes.ok) {
+          const ghData = await ghRes.json();
+          if (ghData.content) {
+            realContent = Buffer.from(ghData.content, "base64").toString("utf-8");
+          }
+        } else if (ghRes.status === 401 || ghRes.status === 403) {
+          return res.status(ghRes.status).json({
+            success: false,
+            error: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein.",
+            voiceMessage: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein."
+          });
+        } else if (ghRes.status === 404) {
+          return res.status(404).json({
+            success: false,
+            error: "Tanmay Bhaiya, di gayi file path GitHub repository par nahi mili.",
+            voiceMessage: "Tanmay Bhaiya, di gayi file path GitHub repository par nahi mili."
+          });
         }
+      } catch (e) {
+        console.warn("GitHub fetch notice:", e);
       }
     }
 
@@ -628,69 +642,108 @@ app.post("/api/refine-code", async (req, res) => {
 app.post("/api/github-deploy", async (req, res) => {
   const { filePath, code, commitMessage } = req.body || {};
   const target = filePath || "server.ts";
-  const msg = commitMessage || `Fix bugs and optimize ${target} via Yui Dual-Model Engine`;
+  const msg = commitMessage || `Auto-update code via AI Assistant`;
 
-  let githubPushed = false;
+  if (!process.env.GITHUB_TOKEN) {
+    return res.status(401).json({
+      success: false,
+      error: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein.",
+      voiceMessage: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein."
+    });
+  }
 
-  if (process.env.GITHUB_TOKEN && code) {
-    try {
-      // Get current file sha if exists
-      const getFileRes = await fetch(`https://api.github.com/repos/tanmay-official/yui-ai-assistant/contents/${target}`, {
-        headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-          Accept: "application/vnd.github.v3+json",
+  if (!code) {
+    return res.status(400).json({ error: "No code provided to deploy." });
+  }
+
+  try {
+    // Step 1: Fetch latest file sha
+    const getFileRes = await fetch(`https://api.github.com/repos/tanmay-official/yui-ai-assistant/contents/${target}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      }
+    });
+
+    if (getFileRes.status === 401 || getFileRes.status === 403) {
+      return res.status(getFileRes.status).json({
+        success: false,
+        error: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein.",
+        voiceMessage: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein."
+      });
+    }
+
+    let sha = "";
+    if (getFileRes.ok) {
+      const fileInfo = await getFileRes.json();
+      sha = fileInfo.sha || "";
+    } else if (getFileRes.status === 404) {
+      // File doesn't exist yet on GitHub, sha will remain empty for creation
+    }
+
+    // Step 2: Update/create file on GitHub
+    const updateRes = await fetch(`https://api.github.com/repos/tanmay-official/yui-ai-assistant/contents/${target}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: msg,
+        content: Buffer.from(code).toString("base64"),
+        sha: sha || undefined
+      })
+    });
+
+    if (updateRes.status === 401 || updateRes.status === 403) {
+      return res.status(updateRes.status).json({
+        success: false,
+        error: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein.",
+        voiceMessage: "Tanmay Bhaiya, GITHUB_TOKEN invalid hai ya permissions issue hai. Check karein."
+      });
+    } else if (updateRes.status === 404) {
+      return res.status(404).json({
+        success: false,
+        error: "Tanmay Bhaiya, di gayi file path GitHub repository par nahi mili.",
+        voiceMessage: "Tanmay Bhaiya, di gayi file path GitHub repository par nahi mili."
+      });
+    }
+
+    if (updateRes.ok || updateRes.status === 201) {
+      // Also update local file in workspace if it exists
+      try {
+        const localPath = path.join(process.cwd(), target);
+        if (fs.existsSync(localPath)) {
+          fs.writeFileSync(localPath, code, "utf-8");
         }
+      } catch (e) {
+        console.warn("Local workspace sync notice:", e);
+      }
+
+      return res.json({
+        success: true,
+        repository: "tanmay-official/yui-ai-assistant",
+        branch: "main",
+        updatedFile: target,
+        githubPushed: true,
+        deploymentStatus: "Render Auto-Deploy Triggered",
+        voiceMessage: "Code successfully GitHub par update ho gaya hai! Render ab auto-deploy kar raha hai."
       });
-      let sha = "";
-      if (getFileRes.ok) {
-        const fileInfo = await getFileRes.json();
-        sha = fileInfo.sha || "";
-      }
-
-      // Commit to GitHub repo
-      const updateRes = await fetch(`https://api.github.com/repos/tanmay-official/yui-ai-assistant/contents/${target}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: msg,
-          content: Buffer.from(code).toString("base64"),
-          sha: sha || undefined
-        })
+    } else {
+      const errData = await updateRes.json().catch(() => ({}));
+      return res.status(updateRes.status).json({
+        success: false,
+        error: errData.message || "Failed to push to GitHub",
+        voiceMessage: "GitHub update fails with status " + updateRes.status
       });
-
-      if (updateRes.ok) {
-        githubPushed = true;
-      }
-    } catch (e) {
-      console.warn("GitHub API deployment notice:", e);
     }
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || "Internal deployment error"
+    });
   }
-
-  // Update local file if in workspace
-  if (code) {
-    try {
-      const localPath = path.join(process.cwd(), target);
-      if (fs.existsSync(localPath)) {
-        fs.writeFileSync(localPath, code, "utf-8");
-      }
-    } catch (e) {
-      console.warn("Local file write notice:", e);
-    }
-  }
-
-  res.json({
-    success: true,
-    repository: "tanmay-official/yui-ai-assistant",
-    branch: "main",
-    updatedFile: target,
-    githubPushed,
-    deploymentStatus: "Render Auto-Deploy Triggered",
-    voiceMessage: "GitHub Repository updated successfully! Render is now auto-deploying the changes (ETA ~1 minute)."
-  });
 });
 
 // Create standalone WebSocket Server for Yui Live API
