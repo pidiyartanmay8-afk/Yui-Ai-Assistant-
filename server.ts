@@ -511,7 +511,7 @@ REAL CODE CONTENT:
 ${realContent.slice(0, 8000)}`;
 
         const result = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.6-flash",
           contents: prompt,
         });
 
@@ -571,7 +571,7 @@ app.post("/api/refine-code", async (req, res) => {
         const aiFlash = new GoogleGenAI({ apiKey: apiKeyFlash });
         const flashPrompt = `You are Gemini Flash Code Fixer. Refine and fix any edge-case bugs in the following TypeScript code for '${target}'. Return ONLY the complete, corrected TypeScript code:\n\n${baseCode.slice(0, 8000)}`;
         const flashRes = await aiFlash.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.6-flash",
           contents: flashPrompt,
         });
         if (flashRes.text) {
@@ -595,9 +595,9 @@ app.post("/api/refine-code", async (req, res) => {
             contents: proPrompt,
           });
         } catch (proErr) {
-          // Fallback to gemini-2.5-flash if pro preview model is unavailable
+          // Fallback to gemini-3.6-flash if pro preview model is unavailable
           proRes = await aiPro.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.6-flash",
             contents: proPrompt,
           });
         }
