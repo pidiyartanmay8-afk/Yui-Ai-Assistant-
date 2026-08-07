@@ -118,7 +118,7 @@ export class AudioStreamer {
       this.startVolumeMonitoring();
     } catch (err) {
       this.stopRecording();
-      console.error('Error starting audio recording:', err);
+      console.warn('Microphone recording notice:', err?.message || err);
       throw err;
     }
   }

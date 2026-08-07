@@ -219,7 +219,7 @@ export class YuiLiveSession {
           });
           this.setConnectionState('listening');
         } catch (err: any) {
-          console.error('Failed to start microphone:', err);
+          console.warn('Microphone start notice:', err?.message || err);
           let errMsg = 'Microphone access required for voice conversation.';
           if (
             err?.name === 'NotAllowedError' ||
