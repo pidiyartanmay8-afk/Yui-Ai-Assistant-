@@ -6,16 +6,18 @@ import { MemoryModal } from './components/MemoryModal';
 import { MicPermissionGuide } from './components/MicPermissionGuide';
 import { MapViewModal, MapDataInfo } from './components/MapViewModal';
 import { YouTubePlayerModal } from './components/YouTubePlayerModal';
+import { DevDashboardModal } from './components/DevDashboardModal';
 import {
   YuiLiveSession,
   ConnectionState,
   IdentityStatus,
   CameraFacing,
   YouTubeMediaInfo,
+  DevDashboardInfo,
 } from './lib/liveSession';
 import { getAllMemories, subscribeMemorySaved } from './lib/memoryStore';
 import { requestUserLocation, watchUserLocation } from './lib/locationService';
-import { Mic, AlertCircle, Sparkles, ExternalLink } from 'lucide-react';
+import { Mic, AlertCircle, Sparkles, ExternalLink, Cpu } from 'lucide-react';
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -34,6 +36,7 @@ export default function App() {
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [mapData, setMapData] = useState<MapDataInfo | null>(null);
   const [ytMedia, setYtMedia] = useState<YouTubeMediaInfo | null>(null);
+  const [dashData, setDashData] = useState<DevDashboardInfo | null>(null);
 
   const sessionRef = useRef<YuiLiveSession | null>(null);
 
@@ -97,6 +100,9 @@ export default function App() {
       },
       onYouTubeToggle: (data) => {
         setYtMedia(data);
+      },
+      onDevDashboardToggle: (data) => {
+        setDashData(data);
       },
     });
 
@@ -181,8 +187,8 @@ export default function App() {
           />
         </div>
 
-        {/* Bottom Minimalist Floating Voice Session Button */}
-        <div className="pb-6 pt-2 flex flex-col items-center z-30">
+        {/* Bottom Minimalist Floating Voice Session & Developer Dashboard Buttons */}
+        <div className="pb-6 pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 z-30">
           <button
             id="main-voice-activation-btn"
             onClick={handleToggleSession}
@@ -211,8 +217,28 @@ export default function App() {
               </>
             )}
           </button>
+
+          <button
+            onClick={() => setDashData({ show: true, activeTab: 'analysis' })}
+            className="flex items-center space-x-2 rounded-full px-5 py-3.5 bg-slate-950/80 border border-slate-700 hover:border-sky-400 text-slate-300 hover:text-sky-200 text-xs font-semibold shadow-xl backdrop-blur-md transition-all active:scale-95"
+          >
+            <Cpu className="h-4 w-4 text-sky-400" />
+            <span>Dev Dashboard</span>
+          </button>
         </div>
       </main>
+
+      {/* Developer & System Intelligence Dashboard Modal */}
+      <DevDashboardModal
+        dashData={dashData}
+        isTanmayVerified={identity.isTanmay}
+        onClose={() => setDashData(null)}
+        onSendVoicePrompt={(txt) => {
+          if (sessionRef.current) {
+            sessionRef.current.sendRealtimeTextPrompt(txt);
+          }
+        }}
+      />
 
       {/* Top Right Frosted Glass Toast Notification for Memory Saves & Erasures */}
       <MemoryToast
