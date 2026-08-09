@@ -50,7 +50,14 @@ jobs:
           npx cap init "Yui Assistant" "com.yui.app" --web-dir $BUILD_DIR || true
           npx cap add android
           npx cap sync android
+          # Fix Kotlin duplicate stdlib dependencies
+          cat >> android/app/build.gradle <<'EOF'
 
+          configurations.all {
+              exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+              exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"
+          }
+          EOF
       - name: Build APK with Gradle
         run: |
           cd android
