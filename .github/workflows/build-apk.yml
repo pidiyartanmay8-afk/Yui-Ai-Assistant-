@@ -22,8 +22,10 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Clean & Reinstall Dependencies (Fix Native Binding)
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --force
 
       - name: Build Web App
         env:
@@ -37,8 +39,13 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: npm run build
 
-      - name: Setup Capacitor Android
+      - name: Initialize & Sync Capacitor
         run: |
+          BUILD_DIR="dist"
+          if [ -d "build" ]; then BUILD_DIR="build"; fi
+          if [ -d "out" ]; then BUILD_DIR="out"; fi
+          
+          npx cap init "Yui Assistant" "com.yui.app" --web-dir $BUILD_DIR || true
           npx cap add android || true
           npx cap sync android || true
 
@@ -53,3 +60,4 @@ jobs:
         with:
           name: Yui-Assistant-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          
