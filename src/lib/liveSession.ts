@@ -202,8 +202,8 @@ export class YuiLiveSession {
 
     this.setConnectionState('connecting');
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+    const wsUrl = 'wss://yui-ai-assistant.onrender.com';
+
 
     try {
       this.ws = new WebSocket(wsUrl);
