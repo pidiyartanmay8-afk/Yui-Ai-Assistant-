@@ -1,0 +1,55 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Web App
+        env:
+          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VITE_GEMINI_API_KEY2: ${{ secrets.GEMINI_API_KEY2 }}
+          VITE_LOCATIONIQ_API_KEY: ${{ secrets.LOCATIONIQ_API_KEY }}
+          VITE_YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY2: ${{ secrets.GEMINI_API_KEY2 }}
+          LOCATIONIQ_API_KEY: ${{ secrets.LOCATIONIQ_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: npm run build
+
+      - name: Setup Capacitor Android
+        run: |
+          npx cap add android || true
+          npx cap sync android || true
+
+      - name: Build APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yui-Assistant-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
