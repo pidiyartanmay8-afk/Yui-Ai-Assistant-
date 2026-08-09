@@ -26,6 +26,7 @@ jobs:
         run: |
           rm -rf node_modules package-lock.json
           npm install --include=optional --os=linux --cpu=x64
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           npm rebuild
 
       - name: Build Web App
@@ -40,15 +41,15 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: npm run build
 
-      - name: Initialize & Sync Capacitor
+      - name: Initialize & Setup Android Platform
         run: |
           BUILD_DIR="dist"
           if [ -d "build" ]; then BUILD_DIR="build"; fi
           if [ -d "out" ]; then BUILD_DIR="out"; fi
           
           npx cap init "Yui Assistant" "com.yui.app" --web-dir $BUILD_DIR || true
-          npx cap add android || true
-          npx cap sync android || true
+          npx cap add android
+          npx cap sync android
 
       - name: Build APK with Gradle
         run: |
