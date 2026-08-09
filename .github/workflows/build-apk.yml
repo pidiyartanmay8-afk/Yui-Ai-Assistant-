@@ -50,7 +50,10 @@ jobs:
           npx cap init "Yui Assistant" "com.yui.app" --web-dir $BUILD_DIR || true
           npx cap add android
           npx cap sync android
-          # Fix Kotlin duplicate stdlib dependencies
+                  # Inject Microphone Permissions into AndroidManifest.xml
+        sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+         # Fix Kotlin duplicate stdlib dependencies
           cat >> android/app/build.gradle <<'EOF'
 
           configurations.all {
