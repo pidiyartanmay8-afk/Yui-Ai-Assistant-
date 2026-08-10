@@ -161,6 +161,7 @@ export class YuiLiveSession {
   private bgVideo: HTMLVideoElement | null = null;
   private bgMediaStream: MediaStream | null = null;
   private bgFrameInterval: NodeJS.Timeout | null = null;
+  private pingInterval: NodeJS.Timeout | null = null;
 
   constructor(callbacks: LiveSessionCallbacks) {
     this.callbacks = callbacks;
@@ -193,6 +194,66 @@ export class YuiLiveSession {
   }
 
   /**
+   * Dynamically constructs the WebSocket URL.
+   * Auto-detects Android WebView / Capacitor / Cordova / Local environment and routes to Render backend:
+   * wss://yui-ai-assistant.onrender.com/ws/live
+   */
+  private getWebSocketUrl(): string {
+    const envUrl = (import.meta.env.VITE_BACKEND_URL as string) || (import.meta.env.VITE_RENDER_URL as string);
+    if (envUrl) {
+      const cleanUrl = envUrl.replace(/^http/, 'ws').replace(/\/+$/, '');
+      return `${cleanUrl}/ws/live`;
+    }
+
+    const host = typeof window !== 'undefined' ? window.location.host || '' : '';
+    const hostname = typeof window !== 'undefined' ? window.location.hostname || '' : '';
+    const protocol = typeof window !== 'undefined' ? window.location.protocol || '' : '';
+
+    // Check if running inside Android Capacitor WebView / Localhost
+    const isMobileAppOrLocal =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '' ||
+      protocol === 'capacitor:' ||
+      protocol === 'file:' ||
+      typeof (window as any).Capacitor !== 'undefined' ||
+      host.includes('localhost') ||
+      host.includes('127.0.0.1');
+
+    // If running in mobile app / Capacitor WebView, connect directly to Render backend
+    if (isMobileAppOrLocal) {
+      return 'wss://yui-ai-assistant.onrender.com/ws/live';
+    }
+
+    // Default web browser connection
+    const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${host}/ws/live`;
+  }
+
+  /**
+   * Client-initiated ping heartbeat to prevent Render / Android WebView idle connection drops
+   */
+  private startPingHeartbeat(): void {
+    this.stopPingHeartbeat();
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify({ type: 'ping' }));
+        } catch (e) {
+          console.warn('Heartbeat ping warning:', e);
+        }
+      }
+    }, 12000); // Send keep-alive every 12 seconds
+  }
+
+  private stopPingHeartbeat(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
+
+  /**
    * Connect to Yui Live WebSocket session
    */
   public async connect(): Promise<void> {
@@ -202,14 +263,16 @@ export class YuiLiveSession {
 
     this.setConnectionState('connecting');
 
-    const wsUrl = 'wss://yui-ai-assistant.onrender.com';
-
+    const wsUrl = this.getWebSocketUrl();
+    console.log('Connecting to Yui WebSocket server:', wsUrl);
 
     try {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = async () => {
-        console.log('Connected to Yui WebSocket server');
+        console.log('Connected to Yui WebSocket server:', wsUrl);
+        this.startPingHeartbeat();
+
         try {
           // Start mic recording
           await this.audioStreamer.startRecording((base64PCM) => {
@@ -227,7 +290,7 @@ export class YuiLiveSession {
             err?.message?.toLowerCase().includes('permission denied') ||
             err?.message?.toLowerCase().includes('not allowed')
           ) {
-            errMsg = 'Microphone Permission Blocked: Please click the camera/microphone lock icon in your browser address bar and choose "Allow" for microphone access.';
+            errMsg = 'Microphone Permission Blocked: Please grant microphone permission in device/app settings.';
           }
           this.callbacks.onError(errMsg);
           this.disconnect();
@@ -264,15 +327,18 @@ export class YuiLiveSession {
 
       this.ws.onerror = (err) => {
         console.error('WebSocket connection error:', err);
+        this.stopPingHeartbeat();
         this.setConnectionState('error');
-        this.callbacks.onError('Connection error with Yui AI Assistant.');
+        this.callbacks.onError('Connection error with Yui AI Assistant (Render server).');
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket connection closed');
+      this.ws.onclose = (event) => {
+        console.log(`WebSocket connection closed (code: ${event.code}, reason: ${event.reason || 'none'})`);
+        this.stopPingHeartbeat();
         this.disconnect();
       };
     } catch (err: any) {
+      this.stopPingHeartbeat();
       this.setConnectionState('error');
       this.callbacks.onError(err?.message || 'Failed to initialize session.');
     }
@@ -282,6 +348,7 @@ export class YuiLiveSession {
    * Disconnect Yui Live Session
    */
   public disconnect(): void {
+    this.stopPingHeartbeat();
     this.audioStreamer.stopRecording();
     this.stopBackgroundVision();
 

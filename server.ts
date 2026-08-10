@@ -8,10 +8,7 @@ import { createServer as createViteServer } from "vite";
 
 const app = express();
 const server = http.createServer(app);
-
-const PORT = process.env.PORT || 3000;
-
-
+const PORT = 3000;
 
 // Shared Gemini AI Client Helper
 function getApiKeys(): string[] {

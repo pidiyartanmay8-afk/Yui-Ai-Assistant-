@@ -23,6 +23,10 @@ export class AudioStreamer {
   private volumeAnimationId: number | null = null;
   private onVolumeChange: ((inputVol: number, outputVol: number) => void) | null = null;
 
+  // Mobile WebView audio chunk accumulation buffer (~2048 samples = 128ms @ 16kHz)
+  private pcmAccumulatorBuffer: number[] = [];
+  private targetChunkSamples: number = 2048;
+
   constructor() {}
 
   public setVolumeCallback(cb: (inputVol: number, outputVol: number) => void) {
@@ -97,6 +101,7 @@ export class AudioStreamer {
       this.scriptProcessor.connect(this.inputAudioCtx.destination);
 
       const nativeSampleRate = this.inputAudioCtx.sampleRate;
+      this.pcmAccumulatorBuffer = [];
 
       this.scriptProcessor.onaudioprocess = (e) => {
         if (!this.onInputPCM) return;
@@ -107,10 +112,18 @@ export class AudioStreamer {
           pcmData = this.downsampleBuffer(inputData, nativeSampleRate, 16000);
         }
 
-        // Convert Float32Array (-1.0 to 1.0) to 16-bit PCM ArrayBuffer
-        const pcm16 = this.floatTo16BitPCM(pcmData);
-        const base64 = this.arrayBufferToBase64(pcm16);
-        this.onInputPCM(base64);
+        // Accumulate downsampled Float32 samples
+        for (let i = 0; i < pcmData.length; i++) {
+          this.pcmAccumulatorBuffer.push(pcmData[i]);
+        }
+
+        // Send in stable chunks of ~2048 16kHz samples (~128ms) to prevent mobile WebView socket congestion
+        while (this.pcmAccumulatorBuffer.length >= this.targetChunkSamples) {
+          const chunk = new Float32Array(this.pcmAccumulatorBuffer.splice(0, this.targetChunkSamples));
+          const pcm16 = this.floatTo16BitPCM(chunk);
+          const base64 = this.arrayBufferToBase64(pcm16);
+          this.onInputPCM(base64);
+        }
       };
 
       // Ensure output AudioContext is ready for 24kHz response playback
@@ -127,6 +140,7 @@ export class AudioStreamer {
    * Stop recording microphone audio
    */
   public stopRecording(): void {
+    this.pcmAccumulatorBuffer = [];
     if (this.scriptProcessor) {
       this.scriptProcessor.disconnect();
       this.scriptProcessor = null;
