@@ -11,35 +11,38 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: '22'
 
       - name: Install Dependencies
-        run: |
-          npm install
-          npm install @capacitor/android @capacitor/core @capacitor/cli
+        run: npm install
 
       - name: Build Web App
+        run: npm run build
+
+      - name: Prepare Web Assets
         run: |
-          npm run build
+          rm -rf www
           mkdir -p www
-          cp -r dist/* www/ || true
+          cp -r dist/. www/
 
       - name: Sync Capacitor
-        run: npx @capacitor/cli sync android
+        run: npx cap sync android
 
       - name: Setup Java 21
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '21'
           cache: gradle
 
-      - name: Build APK (Debug)
+      - name: Build APK
         working-directory: ./android
-        run: gradle assembleDebug --stacktrace
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
