@@ -18,11 +18,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          
+          node-version: '22'
+          cache: 'npm'
 
       - name: Install Project Dependencies
-        run: npm ci || npm install
+        run: npm ci
 
       - name: Build Web Application
         run: npm run build
@@ -47,11 +47,15 @@ jobs:
           ls -la android || true
           echo "Checking android/app directory..."
           ls -la android/app || true
+          echo "Checking android/app/src directory..."
+          ls -la android/app/src || true
+          echo "Checking android/app/src/main directory..."
+          ls -la android/app/src/main || true
 
       - name: Grant Gradle Execute Permission
         run: |
-          if [ -f "android/gradlew" ]; then
-            chmod +x android/gradlew
+          if [ -f "./android/gradlew" ]; then
+            chmod +x ./android/gradlew
           fi
 
       - name: Sync Capacitor
@@ -59,7 +63,15 @@ jobs:
 
       - name: Build Android Debug APK
         working-directory: ./android
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --stacktrace
+          else
+            echo "ERROR: android/gradlew was not found."
+            echo "Android Gradle project is incomplete."
+            exit 1
+          fi
 
       - name: Upload Generated APK
         uses: actions/upload-artifact@v4
