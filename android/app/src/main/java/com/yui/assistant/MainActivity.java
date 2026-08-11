@@ -3,6 +3,8 @@ package com.yui.assistant;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -18,7 +20,18 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(YuiNativePlugin.class);
         super.onCreate(savedInstanceState);
 
+        // 1. Android Phone System se Mic/Camera Permission mangne ke liye
         requestYuiPermissions();
+
+        // 2. WebView (JavaScript) me Mic allow karne ke liye (Browser error fix)
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            this.bridge.getWebView().setWebChromeClient(new WebChromeClient() {
+                @Override
+                public void onPermissionRequest(final PermissionRequest request) {
+                    runOnUiThread(() -> request.grant(request.getResources()));
+                }
+            });
+        }
     }
 
     private void requestYuiPermissions() {
