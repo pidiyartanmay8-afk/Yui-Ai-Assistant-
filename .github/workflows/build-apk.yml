@@ -16,45 +16,27 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install Dependencies
-        run: |
-          npm install
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 --save-dev
-
-      - name: Build Web App
-        run: |
-          npm run build
-          mkdir -p www
-          cp -r dist/* www/ || true
-
-      - name: Sync & Restore Custom Android
-        run: |
-          # 1. आपके custom src/main (परमिशन + जावा लॉजिक) का बैकअप
-          mkdir -p /tmp/android_backup
-          cp -r android/app/src/main/* /tmp/android_backup/ || true
-
-          # 2. missing gradle/android ढांचा री-जेनरेट करना
-          rm -rf android
-          npx @capacitor/cli add android || true
-
-          # 3. बैकअप से आपकी परमिशन और कोड वापस कॉपी करना
-          cp -r /tmp/android_backup/* android/app/src/main/
-
-          # 4. Sync करना
-          npx @capacitor/cli sync android
-
       - name: Setup Java 21
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web App
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
 
       - name: Build APK (Debug)
         working-directory: ./android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
