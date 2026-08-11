@@ -52,6 +52,19 @@ export default function App() {
     requestUserLocation();
     const stopWatcher = watchUserLocation();
 
+    // Non-blocking prompt for Camera & Microphone runtime permissions on Android launch
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ audio: true, video: true })
+        .then((stream) => {
+          // Release initial stream immediately after permissions are granted
+          stream.getTracks().forEach((track) => track.stop());
+        })
+        .catch((err) => {
+          console.warn('Initial media permission request notice:', err);
+        });
+    }
+
     // Subscribe to memory saved events
     const unsubscribe = subscribeMemorySaved((newMem) => {
       setToastInfo({ type: 'saved', text: newMem.text });
