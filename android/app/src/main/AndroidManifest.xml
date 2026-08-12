@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.yui.assistant">
 
-    <!-- Permissions required for Yui Voice Assistant & Advanced Native Actions -->
+    <!-- All Native Runtime Permissions for Yui Voice Assistant -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
@@ -18,7 +18,7 @@
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
 
-    <!-- Query packages for launch intents -->
+    <!-- Query packages for launching external apps -->
     <queries>
         <package android:name="com.whatsapp" />
         <package android:name="com.instagram.android" />
