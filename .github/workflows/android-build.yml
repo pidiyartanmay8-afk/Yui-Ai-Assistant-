@@ -39,11 +39,17 @@ jobs:
       - name: Build Android Debug APK
         run: |
           cd android
-          if [ -f "./gradlew" ]; then
+          if [ -f "gradle/wrapper/gradle-wrapper.jar" ] && [ -f "./gradlew" ]; then
             chmod +x gradlew
             ./gradlew assembleDebug --stacktrace
           else
-            gradle assembleDebug --stacktrace
+            gradle wrapper --gradle-version 8.7 || true
+            if [ -f "gradle/wrapper/gradle-wrapper.jar" ] && [ -f "./gradlew" ]; then
+              chmod +x gradlew
+              ./gradlew assembleDebug --stacktrace
+            else
+              gradle assembleDebug --stacktrace
+            fi
           fi
 
       - name: Upload Generated APK Artifact
