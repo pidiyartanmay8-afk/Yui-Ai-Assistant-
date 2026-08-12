@@ -41,14 +41,14 @@ jobs:
           cd android
           if [ -f "gradle/wrapper/gradle-wrapper.jar" ] && [ -f "./gradlew" ]; then
             chmod +x gradlew
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew :app:assembleDebug --stacktrace
           else
             gradle wrapper --gradle-version 8.7 || true
             if [ -f "gradle/wrapper/gradle-wrapper.jar" ] && [ -f "./gradlew" ]; then
               chmod +x gradlew
-              ./gradlew assembleDebug --stacktrace
+              ./gradlew :app:assembleDebug --stacktrace
             else
-              gradle assembleDebug --stacktrace
+              gradle :app:assembleDebug --stacktrace
             fi
           fi
 
