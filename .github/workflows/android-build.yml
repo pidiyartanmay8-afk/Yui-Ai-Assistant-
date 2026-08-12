@@ -25,7 +25,7 @@ jobs:
         run: npm run build
 
       - name: Copy Web Assets to Capacitor Android
-        run: npx cap copy android
+        run: npx @capacitor/cli copy android
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
