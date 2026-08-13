@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     namespace "com.yui.assistant"
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.yui.assistant"
         minSdk 23
-        targetSdk 34
+        targetSdk 36
         versionCode 1
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -33,9 +33,17 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
     implementation 'androidx.core:core-ktx:1.13.1'
     
-    // Capacitor Android dependency
-    implementation 'com.capacitorjs:core:6.2.0'
-    implementation 'com.capacitorjs:android:6.2.0'
+    // Capacitor Android local module dependency
+    implementation project(':capacitor-android')
+}
+
+try {
+    def capacitorBuildGradle = file('capacitor.build.gradle')
+    if (capacitorBuildGradle.exists()) {
+        apply from: 'capacitor.build.gradle'
+    }
+} catch (Exception e) {
+    logger.info("capacitor.build.gradle not applied: " + e.message)
 }
 
 try {

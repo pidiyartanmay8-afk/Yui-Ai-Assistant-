@@ -10,9 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url "$rootDir/../node_modules/@capacitor/android/capacitor"
-        }
     }
 }
+
 include ':app'
+apply from: 'capacitor.settings.gradle'

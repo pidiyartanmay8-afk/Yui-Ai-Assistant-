@@ -3,14 +3,6 @@
   "appName": "Yui AI Assistant",
   "webDir": "dist",
   "bundledWebRuntime": false,
-  "server": {
-    "url": "https://yui-ai-assistant.onrender.com",
-    "cleartext": true,
-    "allowNavigation": [
-      "yui-ai-assistant.onrender.com",
-      "*.onrender.com"
-    ]
-  },
   "android": {
     "allowMixedContent": true,
     "captureInput": true,

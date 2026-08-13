@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private static final int PERMISSION_REQUEST_CODE = 7001;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -21,10 +20,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(YuiNativePlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Prompt user for Android OS native runtime permissions on application launch
-        requestAndroidNativePermissions();
-
-        // Configure WebView settings & WebChromeClient to grant web permissions (microphone/camera) seamlessly
+        // Configure WebView settings & WebChromeClient to grant web permissions contextually
         WebView webView = getBridge().getWebView();
         if (webView != null) {
             WebSettings settings = webView.getSettings();
@@ -37,46 +33,33 @@ public class MainActivity extends BridgeActivity {
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
                 public void onPermissionRequest(final PermissionRequest request) {
-                    // Grant audio and video permission requests initiated by the Render Web App inside WebView
+                    // Grant audio and video permission requests initiated by the Render Web App contextually
                     runOnUiThread(() -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            request.grant(request.getResources());
+                            String[] resources = request.getResources();
+                            boolean needAudio = false;
+                            boolean needVideo = false;
+
+                            for (String res : resources) {
+                                if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res)) needAudio = true;
+                                if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res)) needVideo = true;
+                            }
+
+                            boolean audioOk = !needAudio || ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+                            boolean videoOk = !needVideo || ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+
+                            if (!audioOk || !videoOk) {
+                                java.util.List<String> toReq = new java.util.ArrayList<>();
+                                if (needAudio && !audioOk) toReq.add(Manifest.permission.RECORD_AUDIO);
+                                if (needVideo && !videoOk) toReq.add(Manifest.permission.CAMERA);
+                                ActivityCompat.requestPermissions(MainActivity.this, toReq.toArray(new String[0]), 8001);
+                            }
+
+                            request.grant(resources);
                         }
                     });
                 }
             });
-        }
-    }
-
-    private void requestAndroidNativePermissions() {
-        String[] permissions = {
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.CALL_PHONE,
-            Manifest.permission.READ_PHONE_STATE,
-            Manifest.permission.SEND_SMS,
-            Manifest.permission.READ_SMS
-        };
-
-        boolean needsRequest = false;
-        for (String perm : permissions) {
-            if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-                needsRequest = true;
-                break;
-            }
-        }
-
-        if (needsRequest) {
-            ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
-        }
-
-        // Post Notifications permission for Android 13+ (API 33+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST_CODE + 1);
-            }
         }
     }
 }
