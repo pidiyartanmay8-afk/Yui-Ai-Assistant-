@@ -10,16 +10,6 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven {
-            url "$rootDir/../node_modules/@capacitor/android/capacitor"
-        }
-    }
-}
-
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

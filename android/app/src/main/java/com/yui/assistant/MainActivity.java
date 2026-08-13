@@ -53,7 +53,11 @@ public class MainActivity extends BridgeActivity {
             Manifest.permission.RECORD_AUDIO,
             Manifest.permission.CAMERA,
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.CALL_PHONE,
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.READ_SMS
         };
 
         boolean needsRequest = false;
