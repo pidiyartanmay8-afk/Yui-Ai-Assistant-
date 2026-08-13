@@ -34,22 +34,20 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Validate Gradle Wrapper
+      - name: Install Gradle 8.11.1
         run: |
-          test -f android/gradle/wrapper/gradle-wrapper.jar
-          cd android
-          chmod +x gradlew
-          ./gradlew --version
+          wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+          unzip -q gradle-8.11.1-bin.zip -d /opt
+          echo "/opt/gradle-8.11.1/bin" >> $GITHUB_PATH
+
+      - name: Verify Gradle Installation
+        run: gradle --version
 
       - name: Build Android Debug APK
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew clean
-          ./gradlew assembleDebug --stacktrace
+          gradle clean
+          gradle assembleDebug --stacktrace
 
       - name: Upload Generated APK Artifact
         uses: actions/upload-artifact@v4
