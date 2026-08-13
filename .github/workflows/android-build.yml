@@ -33,13 +33,26 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Android SDK & Gradle
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Validate Gradle Wrapper
+        run: |
+          if [ ! -f "android/gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "::warning::android/gradle/wrapper/gradle-wrapper.jar is missing from git clone. Downloading wrapper jar..."
+            mkdir -p android/gradle/wrapper
+            curl -sSL -o android/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.11.1/gradle/wrapper/gradle-wrapper.jar || curl -sSL -o android/gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar
+          fi
+          test -f android/gradle/wrapper/gradle-wrapper.jar
+          cd android
+          chmod +x gradlew
+          ./gradlew --version
 
       - name: Build Android Debug APK
         run: |
           cd android
           chmod +x gradlew
+          ./gradlew clean
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload Generated APK Artifact
