@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">Yui Assistant</string>
-    <string name="title_activity_main">Yui Assistant</string>
-
-    <!-- Accessibility Service Description -->
-    <string name="accessibility_service_label">Yui Voice Assistant Actions</string>
-    <string name="accessibility_service_description">Allows Yui Assistant to execute voice commands such as sending messages on social apps.</string>
-</resources>
